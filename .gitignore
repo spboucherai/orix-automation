@@ -1,0 +1,34 @@
+# ORIX OS Automation
+# File: .gitignore
+# Description: Build products, local state, credentials and machine reports never enter the repository.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+.DS_Store
+build/
+dist/
+.build/
+DerivedData/
+*.xcodeproj/
+xcuserdata/
+*.xcuserstate
+*.xcresult
+.swiftpm/
+Packages/*/.build/
+# Credentials and signing material
+*.p12
+*.p8
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.keychain*
+.env
+.env.*
+asc.env
+notary*.json
+AuthKey_*
+# Local state
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+__pycache__/
