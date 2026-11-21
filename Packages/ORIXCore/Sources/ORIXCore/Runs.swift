@@ -99,7 +99,7 @@ public struct AgentPlan: Codable, Sendable, Hashable {
 }
 
 /// A fact the runtime observed itself (tool output, filesystem state), as opposed to something a model said.
-public struct Observation: Codable, Sendable, Hashable, Identifiable {
+public struct RunObservation: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var timestamp: Date
     public var source: String

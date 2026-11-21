@@ -1,5 +1,5 @@
 // ORIX OS Automation
-// File: App/Sources/DesignSystem/Theme.swift
+// File: Packages/ORIXAppUI/Sources/ORIXAppUI/Theme.swift
 // Description: Design tokens: adaptive graphite surfaces, violet/blue accents, status colours, spacing, radii, type scale and motion that respects Reduce Motion.
 //
 // Author: Simon-Pierre Boucher
@@ -8,9 +8,9 @@ import AppKit
 import ORIXCore
 import SwiftUI
 
-extension Color {
+public extension Color {
     /// A colour that follows the window's appearance (light, dark, high contrast).
-    init(light: NSColor, dark: NSColor) {
+    public init(light: NSColor, dark: NSColor) {
         self.init(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.darkAqua, .vibrantDark, .accessibilityHighContrastDarkAqua]) != nil ? dark : light
         })
@@ -20,63 +20,63 @@ extension Color {
     }
 }
 
-enum Theme {
+public enum Theme {
     // Surfaces
-    static let canvas = Color(light: Color.hex(0xF4F4F7), dark: Color.hex(0x0E0E12))
-    static let surface = Color(light: Color.hex(0xFFFFFF), dark: Color.hex(0x17171D))
-    static let surfaceRaised = Color(light: Color.hex(0xFAFAFC), dark: Color.hex(0x1E1E26))
-    static let surfaceSunken = Color(light: Color.hex(0xECECF1), dark: Color.hex(0x0A0A0D))
-    static let stroke = Color(light: Color.hex(0x000000, 0.10), dark: Color.hex(0xFFFFFF, 0.09))
-    static let strokeStrong = Color(light: Color.hex(0x000000, 0.20), dark: Color.hex(0xFFFFFF, 0.18))
+    public static let canvas = Color(light: Color.hex(0xF4F4F7), dark: Color.hex(0x0E0E12))
+    public static let surface = Color(light: Color.hex(0xFFFFFF), dark: Color.hex(0x17171D))
+    public static let surfaceRaised = Color(light: Color.hex(0xFAFAFC), dark: Color.hex(0x1E1E26))
+    public static let surfaceSunken = Color(light: Color.hex(0xECECF1), dark: Color.hex(0x0A0A0D))
+    public static let stroke = Color(light: Color.hex(0x000000, 0.10), dark: Color.hex(0xFFFFFF, 0.09))
+    public static let strokeStrong = Color(light: Color.hex(0x000000, 0.20), dark: Color.hex(0xFFFFFF, 0.18))
 
     // Text
-    static let text = Color(light: Color.hex(0x15151A), dark: Color.hex(0xF2F2F7))
-    static let textSecondary = Color(light: Color.hex(0x55555F), dark: Color.hex(0xA3A3B2))
-    static let textTertiary = Color(light: Color.hex(0x8A8A96), dark: Color.hex(0x6E6E7C))
+    public static let text = Color(light: Color.hex(0x15151A), dark: Color.hex(0xF2F2F7))
+    public static let textSecondary = Color(light: Color.hex(0x55555F), dark: Color.hex(0xA3A3B2))
+    public static let textTertiary = Color(light: Color.hex(0x8A8A96), dark: Color.hex(0x6E6E7C))
 
     // Accents
-    static let violet = Color(light: Color.hex(0x6B45F5), dark: Color.hex(0x8E6BFF))
-    static let blue = Color(light: Color.hex(0x2F6BFF), dark: Color.hex(0x5B8CFF))
-    static let accentGradient = LinearGradient(colors: [violet, blue], startPoint: .topLeading, endPoint: .bottomTrailing)
-    static let accentSoft = Color(light: Color.hex(0x6B45F5, 0.10), dark: Color.hex(0x8E6BFF, 0.16))
+    public static let violet = Color(light: Color.hex(0x6B45F5), dark: Color.hex(0x8E6BFF))
+    public static let blue = Color(light: Color.hex(0x2F6BFF), dark: Color.hex(0x5B8CFF))
+    public static let accentGradient = LinearGradient(colors: [violet, blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+    public static let accentSoft = Color(light: Color.hex(0x6B45F5, 0.10), dark: Color.hex(0x8E6BFF, 0.16))
 
     // Status
-    static let success = Color(light: Color.hex(0x1F9D55), dark: Color.hex(0x3DD68C))
-    static let warning = Color(light: Color.hex(0xB7791F), dark: Color.hex(0xF5B841))
-    static let danger = Color(light: Color.hex(0xD43A3A), dark: Color.hex(0xFF6B6B))
-    static let info = blue
-    static let neutral = textTertiary
+    public static let success = Color(light: Color.hex(0x1F9D55), dark: Color.hex(0x3DD68C))
+    public static let warning = Color(light: Color.hex(0xB7791F), dark: Color.hex(0xF5B841))
+    public static let danger = Color(light: Color.hex(0xD43A3A), dark: Color.hex(0xFF6B6B))
+    public static let info = blue
+    public static let neutral = textTertiary
 
-    enum Space { static let xs: CGFloat = 4, s: CGFloat = 8, m: CGFloat = 12, l: CGFloat = 16, xl: CGFloat = 24, xxl: CGFloat = 36 }
-    enum Radius { static let s: CGFloat = 6, m: CGFloat = 10, l: CGFloat = 14, xl: CGFloat = 20 }
+    public enum Space { public static let xs: CGFloat = 4, s: CGFloat = 8, m: CGFloat = 12, l: CGFloat = 16, xl: CGFloat = 24, xxl: CGFloat = 36 }
+    public enum Radius { public static let s: CGFloat = 6, m: CGFloat = 10, l: CGFloat = 14, xl: CGFloat = 20 }
 
-    enum Font {
-        static let display = SwiftUI.Font.system(size: 28, weight: .semibold, design: .rounded)
-        static let title = SwiftUI.Font.system(size: 20, weight: .semibold)
-        static let heading = SwiftUI.Font.system(size: 15, weight: .semibold)
-        static let body = SwiftUI.Font.system(size: 13)
-        static let bodyStrong = SwiftUI.Font.system(size: 13, weight: .medium)
-        static let caption = SwiftUI.Font.system(size: 11)
-        static let captionStrong = SwiftUI.Font.system(size: 11, weight: .semibold)
-        static let mono = SwiftUI.Font.system(size: 12, design: .monospaced)
-        static let monoSmall = SwiftUI.Font.system(size: 11, design: .monospaced)
-        static let metric = SwiftUI.Font.system(size: 26, weight: .semibold, design: .rounded).monospacedDigit()
+    public enum Font {
+        public static let display = SwiftUI.Font.system(size: 28, weight: .semibold, design: .rounded)
+        public static let title = SwiftUI.Font.system(size: 20, weight: .semibold)
+        public static let heading = SwiftUI.Font.system(size: 15, weight: .semibold)
+        public static let body = SwiftUI.Font.system(size: 13)
+        public static let bodyStrong = SwiftUI.Font.system(size: 13, weight: .medium)
+        public static let caption = SwiftUI.Font.system(size: 11)
+        public static let captionStrong = SwiftUI.Font.system(size: 11, weight: .semibold)
+        public static let mono = SwiftUI.Font.system(size: 12, design: .monospaced)
+        public static let monoSmall = SwiftUI.Font.system(size: 11, design: .monospaced)
+        public static let metric = SwiftUI.Font.system(size: 26, weight: .semibold, design: .rounded).monospacedDigit()
     }
 
     /// Spring used for state changes; collapses to no animation under Reduce Motion.
-    static func spring(_ reduceMotion: Bool) -> Animation? {
+    public static func spring(_ reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82)
     }
 }
 
 /// Presentation of a run status: colour, symbol and words. Never colour alone.
-struct StatusStyle {
-    let color: Color
-    let symbol: String
-    let label: LocalizedStringKey
-    let isActive: Bool
+public struct StatusStyle {
+    public let color: Color
+    public let symbol: String
+    public let label: LocalizedStringKey
+    public let isActive: Bool
 
-    static func of(_ s: RunStatus) -> StatusStyle {
+    public static func of(_ s: RunStatus) -> StatusStyle {
         switch s {
         case .queued: return .init(color: Theme.neutral, symbol: "clock", label: "Queued", isActive: false)
         case .running: return .init(color: Theme.blue, symbol: "play.circle.fill", label: "Running", isActive: true)
@@ -94,7 +94,7 @@ struct StatusStyle {
         }
     }
 
-    static func of(_ s: ToolStatus) -> StatusStyle {
+    public static func of(_ s: ToolStatus) -> StatusStyle {
         switch s {
         case .succeeded: return .init(color: Theme.success, symbol: "checkmark.circle.fill", label: "Succeeded", isActive: false)
         case .simulated: return .init(color: Theme.info, symbol: "eye.circle.fill", label: "Simulated", isActive: false)
@@ -109,7 +109,7 @@ struct StatusStyle {
         }
     }
 
-    static func tier(_ t: ApprovalTier) -> (Color, LocalizedStringKey, String) {
+    public static func tier(_ t: ApprovalTier) -> (Color, LocalizedStringKey, String) {
         switch t {
         case .readOnly: return (Theme.success, "Tier 0 · Read-only", "eye")
         case .reversibleWrite: return (Theme.blue, "Tier 1 · Reversible", "pencil")

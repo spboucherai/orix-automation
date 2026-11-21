@@ -1,5 +1,5 @@
 // ORIX OS Automation
-// File: App/Sources/DesignSystem/Components.swift
+// File: Packages/ORIXAppUI/Sources/ORIXAppUI/Components.swift
 // Description: Shared SwiftUI components: cards, status badges, live pulse, metric tiles, empty states, pills, section headers, key-value rows, button styles, provider glyphs.
 //
 // Author: Simon-Pierre Boucher
@@ -7,10 +7,11 @@
 import ORIXCore
 import SwiftUI
 
-struct Card<Content: View>: View {
-    var padding: CGFloat = Theme.Space.l
-    @ViewBuilder var content: Content
-    var body: some View {
+public struct Card<Content: View>: View {
+    public init(padding: CGFloat = Theme.Space.l, @ViewBuilder content: () -> Content) { self.padding = padding; self.content = content() }
+    public var padding: CGFloat = Theme.Space.l
+    public var content: Content
+    public var body: some View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -20,12 +21,13 @@ struct Card<Content: View>: View {
 }
 
 /// A dot that breathes while something is live. Static under Reduce Motion.
-struct PulseDot: View {
-    var color: Color
-    var active: Bool
+public struct PulseDot: View {
+    public init(color: Color, active: Bool) { self.color = color; self.active = active }
+    public var color: Color
+    public var active: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var on = false
-    var body: some View {
+    public var body: some View {
         ZStack {
             if active && !reduceMotion {
                 Circle().fill(color.opacity(0.35)).frame(width: 14, height: 14).scaleEffect(on ? 1 : 0.4).opacity(on ? 0 : 1)
@@ -38,12 +40,12 @@ struct PulseDot: View {
     }
 }
 
-struct StatusBadge: View {
-    let style: StatusStyle
-    var compact = false
-    init(_ status: RunStatus, compact: Bool = false) { style = .of(status); self.compact = compact }
-    init(tool status: ToolStatus, compact: Bool = false) { style = .of(status); self.compact = compact }
-    var body: some View {
+public struct StatusBadge: View {
+    public let style: StatusStyle
+    public var compact = false
+    public init(_ status: RunStatus, compact: Bool = false) { style = .of(status); self.compact = compact }
+    public init(tool status: ToolStatus, compact: Bool = false) { style = .of(status); self.compact = compact }
+    public var body: some View {
         HStack(spacing: 5) {
             if style.isActive { PulseDot(color: style.color, active: true) } else { Image(systemName: style.symbol).font(.system(size: 11, weight: .semibold)) }
             if !compact { Text(style.label).font(Theme.Font.captionStrong).lineLimit(1) }
@@ -56,9 +58,10 @@ struct StatusBadge: View {
     }
 }
 
-struct TierBadge: View {
-    let tier: ApprovalTier
-    var body: some View {
+public struct TierBadge: View {
+    public init(tier: ApprovalTier) { self.tier = tier }
+    public let tier: ApprovalTier
+    public var body: some View {
         let (color, label, symbol) = StatusStyle.tier(tier)
         Label(label, systemImage: symbol)
             .font(Theme.Font.captionStrong).foregroundStyle(color)
@@ -67,11 +70,12 @@ struct TierBadge: View {
     }
 }
 
-struct Pill: View {
-    let text: String
-    var symbol: String?
-    var color: Color = Theme.textSecondary
-    var body: some View {
+public struct Pill: View {
+    public init(text: String, symbol: String? = nil, color: Color = Theme.textSecondary) { self.text = text; self.symbol = symbol; self.color = color }
+    public let text: String
+    public var symbol: String?
+    public var color: Color = Theme.textSecondary
+    public var body: some View {
         HStack(spacing: 4) {
             if let symbol { Image(systemName: symbol).font(.system(size: 10, weight: .medium)) }
             Text(text).font(Theme.Font.caption).lineLimit(1)
@@ -82,13 +86,16 @@ struct Pill: View {
     }
 }
 
-struct MetricTile: View {
-    let title: LocalizedStringKey
-    let value: String
-    var detail: String?
-    var symbol: String
-    var tint: Color = Theme.violet
-    var body: some View {
+public struct MetricTile: View {
+    public init(title: LocalizedStringKey, value: String, detail: String? = nil, symbol: String, tint: Color = Theme.violet) {
+        self.title = title; self.value = value; self.detail = detail; self.symbol = symbol; self.tint = tint
+    }
+    public let title: LocalizedStringKey
+    public let value: String
+    public var detail: String?
+    public var symbol: String
+    public var tint: Color = Theme.violet
+    public var body: some View {
         Card {
             VStack(alignment: .leading, spacing: Theme.Space.s) {
                 HStack {
@@ -106,13 +113,16 @@ struct MetricTile: View {
     }
 }
 
-struct EmptyState: View {
-    let symbol: String
-    let title: LocalizedStringKey
-    let message: LocalizedStringKey
-    var actionTitle: LocalizedStringKey?
-    var action: (() -> Void)?
-    var body: some View {
+public struct EmptyState: View {
+    public init(symbol: String, title: LocalizedStringKey, message: LocalizedStringKey, actionTitle: LocalizedStringKey? = nil, action: (() -> Void)? = nil) {
+        self.symbol = symbol; self.title = title; self.message = message; self.actionTitle = actionTitle; self.action = action
+    }
+    public let symbol: String
+    public let title: LocalizedStringKey
+    public let message: LocalizedStringKey
+    public var actionTitle: LocalizedStringKey?
+    public var action: (() -> Void)?
+    public var body: some View {
         VStack(spacing: Theme.Space.m) {
             Image(systemName: symbol).font(.system(size: 34, weight: .light)).foregroundStyle(Theme.accentGradient)
                 .frame(width: 72, height: 72).background(Theme.accentSoft, in: Circle())
@@ -127,11 +137,12 @@ struct EmptyState: View {
     }
 }
 
-struct SectionHeader<Trailing: View>: View {
-    let title: LocalizedStringKey
-    var subtitle: LocalizedStringKey?
-    @ViewBuilder var trailing: Trailing
-    var body: some View {
+public struct SectionHeader<Trailing: View>: View {
+    public init(_ title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil, @ViewBuilder trailing: () -> Trailing) { self.title = title; self.subtitle = subtitle; self.trailing = trailing() }
+    public let title: LocalizedStringKey
+    public var subtitle: LocalizedStringKey?
+    public var trailing: Trailing
+    public var body: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(Theme.Font.heading).foregroundStyle(Theme.text)
@@ -143,15 +154,16 @@ struct SectionHeader<Trailing: View>: View {
     }
 }
 
-extension SectionHeader where Trailing == EmptyView {
+public extension SectionHeader where Trailing == EmptyView {
     init(_ title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil) { self.title = title; self.subtitle = subtitle; self.trailing = EmptyView() }
 }
 
-struct PageHeader<Trailing: View>: View {
-    let title: LocalizedStringKey
-    var subtitle: LocalizedStringKey?
-    @ViewBuilder var trailing: Trailing
-    var body: some View {
+public struct PageHeader<Trailing: View>: View {
+    public init(_ title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil, @ViewBuilder trailing: () -> Trailing) { self.title = title; self.subtitle = subtitle; self.trailing = trailing() }
+    public let title: LocalizedStringKey
+    public var subtitle: LocalizedStringKey?
+    public var trailing: Trailing
+    public var body: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(Theme.Font.display).foregroundStyle(Theme.text).accessibilityAddTraits(.isHeader)
@@ -163,15 +175,16 @@ struct PageHeader<Trailing: View>: View {
     }
 }
 
-extension PageHeader where Trailing == EmptyView {
+public extension PageHeader where Trailing == EmptyView {
     init(_ title: LocalizedStringKey, subtitle: LocalizedStringKey? = nil) { self.title = title; self.subtitle = subtitle; self.trailing = EmptyView() }
 }
 
-struct KeyValueRow: View {
-    let key: LocalizedStringKey
-    let value: String
-    var mono = false
-    var body: some View {
+public struct KeyValueRow: View {
+    public init(key: LocalizedStringKey, value: String, mono: Bool = false) { self.key = key; self.value = value; self.mono = mono }
+    public let key: LocalizedStringKey
+    public let value: String
+    public var mono = false
+    public var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(key).font(Theme.Font.caption).foregroundStyle(Theme.textSecondary).frame(width: 110, alignment: .leading)
             Text(value).font(mono ? Theme.Font.monoSmall : Theme.Font.body).foregroundStyle(Theme.text).textSelection(.enabled)
@@ -180,9 +193,10 @@ struct KeyValueRow: View {
     }
 }
 
-struct PrimaryButtonStyle: ButtonStyle {
+public struct PrimaryButtonStyle: ButtonStyle {
+    public init() {}
     @Environment(\.isEnabled) private var enabled
-    func makeBody(configuration: Configuration) -> some View {
+    public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Theme.Font.bodyStrong).foregroundStyle(.white)
             .padding(.horizontal, 14).padding(.vertical, 7)
@@ -191,10 +205,11 @@ struct PrimaryButtonStyle: ButtonStyle {
     }
 }
 
-struct SecondaryButtonStyle: ButtonStyle {
-    var tint: Color = Theme.text
+public struct SecondaryButtonStyle: ButtonStyle {
+    public init(tint: Color = Theme.text) { self.tint = tint }
+    public var tint: Color = Theme.text
     @Environment(\.isEnabled) private var enabled
-    func makeBody(configuration: Configuration) -> some View {
+    public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Theme.Font.bodyStrong).foregroundStyle(tint.opacity(enabled ? 1 : 0.4))
             .padding(.horizontal, 12).padding(.vertical, 6)
@@ -204,10 +219,11 @@ struct SecondaryButtonStyle: ButtonStyle {
 }
 
 /// Monogram glyph for a provider. Drawn here; no third-party logo is bundled.
-struct ProviderGlyph: View {
-    let provider: ProviderID
-    var size: CGFloat = 22
-    var body: some View {
+public struct ProviderGlyph: View {
+    public init(provider: ProviderID, size: CGFloat = 22) { self.provider = provider; self.size = size }
+    public let provider: ProviderID
+    public var size: CGFloat = 22
+    public var body: some View {
         let (letters, color): (String, Color) = {
             switch provider {
             case .anthropic: return ("A", Color(light: .init(srgbRed: 0.80, green: 0.42, blue: 0.27, alpha: 1), dark: .init(srgbRed: 0.90, green: 0.55, blue: 0.40, alpha: 1)))
@@ -224,12 +240,13 @@ struct ProviderGlyph: View {
 }
 
 /// Skeleton line shown while data loads.
-struct SkeletonLine: View {
-    var width: CGFloat? = nil
-    var height: CGFloat = 12
+public struct SkeletonLine: View {
+    public init(width: CGFloat? = nil, height: CGFloat = 12) { self.width = width; self.height = height }
+    public var width: CGFloat? = nil
+    public var height: CGFloat = 12
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase = false
-    var body: some View {
+    public var body: some View {
         RoundedRectangle(cornerRadius: height / 2).fill(Theme.stroke).frame(width: width, height: height)
             .opacity(phase ? 0.45 : 1)
             .onAppear { if !reduceMotion { withAnimation(.easeInOut(duration: 0.9).repeatForever()) { phase = true } } }
@@ -238,13 +255,14 @@ struct SkeletonLine: View {
 }
 
 /// An inline, dismissible message for errors and notices, with an optional recovery action.
-struct Banner: View {
-    enum Kind { case info, warning, error, success }
-    let kind: Kind
-    let text: String
-    var actionTitle: LocalizedStringKey?
-    var action: (() -> Void)?
-    var body: some View {
+public struct Banner: View {
+    public init(kind: Kind, text: String, actionTitle: LocalizedStringKey? = nil, action: (() -> Void)? = nil) { self.kind = kind; self.text = text; self.actionTitle = actionTitle; self.action = action }
+    public enum Kind: Sendable { case info, warning, error, success }
+    public let kind: Kind
+    public let text: String
+    public var actionTitle: LocalizedStringKey?
+    public var action: (() -> Void)?
+    public var body: some View {
         let (color, symbol): (Color, String) = {
             switch kind {
             case .info: return (Theme.info, "info.circle.fill")
@@ -264,29 +282,29 @@ struct Banner: View {
     }
 }
 
-enum Format {
-    static func duration(_ seconds: Double?) -> String {
+public enum Format {
+    public static func duration(_ seconds: Double?) -> String {
         guard let s = seconds else { return "—" }
         if s < 1 { return String(format: "%.0f ms", s * 1000) }
         if s < 60 { return String(format: "%.1f s", s) }
         if s < 3600 { return "\(Int(s) / 60) min \(Int(s) % 60) s" }
         return "\(Int(s) / 3600) h \(Int(s) % 3600 / 60) min"
     }
-    static func cost(_ usd: Double, complete: Bool = true) -> String {
+    public static func cost(_ usd: Double, complete: Bool = true) -> String {
         let v = usd < 0.01 && usd > 0 ? String(format: "$%.4f", usd) : String(format: "$%.2f", usd)
         return complete ? v : "≥ " + v
     }
-    static func tokens(_ n: Int) -> String {
+    public static func tokens(_ n: Int) -> String {
         if n >= 1_000_000 { return String(format: "%.1fM", Double(n) / 1_000_000) }
         if n >= 1_000 { return String(format: "%.1fk", Double(n) / 1_000) }
         return "\(n)"
     }
-    static func relative(_ date: Date?) -> String {
+    public static func relative(_ date: Date?) -> String {
         guard let date else { return "—" }
         let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated
         return f.localizedString(for: date, relativeTo: Date())
     }
-    static func time(_ date: Date) -> String { date.formatted(date: .omitted, time: .standard) }
-    static func dateTime(_ date: Date?) -> String { date?.formatted(date: .abbreviated, time: .shortened) ?? "—" }
-    static func bytes(_ n: Int) -> String { ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .file) }
+    public static func time(_ date: Date) -> String { date.formatted(date: .omitted, time: .standard) }
+    public static func dateTime(_ date: Date?) -> String { date?.formatted(date: .abbreviated, time: .shortened) ?? "—" }
+    public static func bytes(_ n: Int) -> String { ByteCountFormatter.string(fromByteCount: Int64(n), countStyle: .file) }
 }
