@@ -1,16 +1,18 @@
 # ORIX OS Automation
 # File: Workflows/Examples/06-batch-image-conversion.yaml
-# Description: Built-in automation: converts the images of a folder to one format with sequential names.
+# Description: Built-in automation: converts every image of a folder to one format with sequential names, originals untouched.
 #
 # Author: Simon-Pierre Boucher
 # Contact: contact@spboucher.ai
 #
 # Limitations
 # - Originals are never modified or removed; converted copies go to the output folder.
-# - Names are <prefix>-<n>.<format> in listing order; numbers are not zero-padded (the expression language has no padding function).
+# - Names are <prefix>-<n>.<format> in listing order (alphabetical); numbers are not zero-padded (the expression
+#   language has no padding function).
 # - Existing files in the output folder are not overwritten: rerunning into a non-empty folder fails on the first collision.
-# - Supported input/output formats are those of the real documents.imageConvert tool (ImageIO); HEIC needs OS support.
-# - Argument names (format, quality) and output fields (entries[].name/path) are to be reconciled with the real tools.
+# - `format` is one of png, jpeg, jpg, heic, tiff, gif, bmp (documents.imageConvert, ImageIO); another value fails the
+#   first conversion. Animated GIFs lose their animation (first frame only); HEIC needs OS support.
+# - Only the top level of the source folder is read, at most 500 entries.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
@@ -35,7 +37,7 @@ spec:
     - name: format
       type: string
       default: jpeg
-      description: Target format (jpeg, png, tiff or heic).
+      description: Target format (png, jpeg, jpg, heic, tiff, gif or bmp); also used as the file extension.
     - name: prefix
       type: string
       default: image
@@ -57,7 +59,7 @@ spec:
         recursive: false
     - id: images
       needs: [list]
-      transform: ${{ filter(steps.list.output.entries, e => contains(vars.extensions, lower(extname(e.name)))) }}
+      transform: ${{ filter(steps.list.output.entries, e => e.type == "file" && contains(vars.extensions, lower(extname(e.name)))) }}
     - id: prepare
       tool: filesystem.mkdir
       with:
@@ -89,10 +91,12 @@ spec:
       verify:
         - truthy: ${{ len(steps.images.output) > 0 }}
         - equals: ["${{ steps.convert.output.count }}", "${{ len(steps.images.output) }}"]
-        - truthy: ${{ count(steps.converted.output.entries, e => startsWith(e.name, params.prefix + "-")) >= len(steps.images.output) }}
+        - equals: ["${{ sum(steps.convert.output.results, r => r.count) }}", "${{ len(steps.images.output) }}"]
+        - truthy: ${{ count(steps.converted.output.entries, e => startsWith(e.name, params.prefix + "-") && endsWith(e.name, "." + params.format)) >= len(steps.images.output) }}
         - dirNonEmpty: ${{ params.outputFolder }}
     - id: result
       needs: [check]
       output:
         converted: ${{ steps.convert.output.count }}
+        files: ${{ map(steps.convert.output.results, r => r.converted[0].destination) }}
         folder: ${{ params.outputFolder }}

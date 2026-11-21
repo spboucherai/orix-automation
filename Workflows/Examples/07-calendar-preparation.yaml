@@ -1,18 +1,21 @@
 # ORIX OS Automation
 # File: Workflows/Examples/07-calendar-preparation.yaml
-# Description: Built-in automation: reads the coming events from Calendar through AppleScript and writes a preparation briefing.
+# Description: Built-in automation: reads the coming events from Calendar (read-only, with Automation consent) and writes a preparation briefing.
 #
 # Author: Simon-Pierre Boucher
 # Contact: contact@spboucher.ai
 #
 # Limitations
 # - Reads Calendar through Apple Events: macOS asks once for Automation consent (ORIX → Calendar). ORIX never answers
-#   that prompt itself; without consent the step ends BLOCKED_PERMISSION.
-# - Read-only: no event is created, changed or deleted.
-# - Only start date and title are read (one line per event). Recurring events and time zones follow what Calendar reports.
+#   that prompt itself; when consent was refused the step ends BLOCKED_PERMISSION and nothing is written.
+# - The script opens Calendar if it is not running (that is what `tell application` does).
+# - Read-only: the script only reads start dates and titles. No event is created, changed or deleted.
+# - Only start date and title are read (one line per event). Dates are formatted by AppleScript in the Mac's language;
+#   recurring events and time zones follow what Calendar reports.
 # - Large calendars make the AppleScript query slow; the step has a 120 s timeout.
 # - `daysAhead` is interpolated into the script text; it is declared as an integer parameter for that reason.
-# - The output field (`result`) is to be reconciled with the real applescript.run tool.
+# - The notification needs the ORIX app (a command-line run has no application bundle): there the last step fails by
+#   itself and the run ends PARTIALLY_SUCCEEDED with the briefing written.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
@@ -59,14 +62,14 @@ spec:
       name: Read the coming events
       tool: applescript.run
       with:
-        bundleID: com.apple.iCal
+        targets: [com.apple.iCal]
         timeoutSeconds: 120
         script: |
           set startDate to current date
           set time of startDate to 0
           set endDate to startDate + (${{ params.daysAhead }} * days)
           set out to ""
-          tell application "Calendar"
+          tell application id "com.apple.iCal"
             repeat with c in calendars
               repeat with e in (every event of c whose start date >= startDate and start date < endDate)
                 set out to out & ((start date of e) as string) & tab & (summary of e) & linefeed
@@ -77,7 +80,7 @@ spec:
       timeoutSeconds: 150
     - id: lines
       needs: [events]
-      transform: ${{ filter(split(default(steps.events.output.result, ""), "\n"), l => len(trim(l)) > 0) }}
+      transform: ${{ filter(split(default(steps.events.output.value, ""), "\n"), l => len(trim(l)) > 0) }}
     - id: write
       name: Write the briefing
       needs: [paths, prepare, lines]
@@ -96,10 +99,6 @@ spec:
       verify:
         - fileContains: ${{ vars.briefing }}
           text: "# Briefing for"
-    - id: announce
-      needs: [check]
-      notify: ${{ len(steps.lines.output) }} event(s) to prepare.
-      title: Calendar briefing
     - id: result
       needs: [check]
       output:
@@ -107,3 +106,8 @@ spec:
         events: ${{ len(steps.lines.output) }}
       artifacts:
         - ${{ vars.briefing }}
+    - id: announce
+      needs: [result]
+      notify: ${{ len(steps.lines.output) }} event(s) to prepare.
+      title: Calendar briefing
+      continueOnError: true

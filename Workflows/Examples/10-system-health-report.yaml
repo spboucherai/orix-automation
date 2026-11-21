@@ -1,6 +1,6 @@
 # ORIX OS Automation
 # File: Workflows/Examples/10-system-health-report.yaml
-# Description: Built-in automation: collects read-only system facts in parallel and writes a local health report.
+# Description: Built-in automation: collects system, disk, process, power and network facts into a dated Markdown report.
 #
 # Author: Simon-Pierre Boucher
 # Contact: contact@spboucher.ai
@@ -8,8 +8,11 @@
 # Limitations
 # - Read-only observation: nothing is cleaned, quit or changed. The only write is the report file.
 # - Values are what the system tools report at the moment of the run (a snapshot, not a trend).
-# - The low-disk notification compares the free fraction of the startup volume with `minFreeFraction`.
-# - Sections are written as JSON blocks; field names (freeBytes, totalBytes, …) are to be reconciled with the real system tools.
+# - "Free" is the space macOS reports as available for important usage on the startup volume (purgeable space
+#   included), which is what Finder shows; it can differ from `df`.
+# - The low-disk notification compares that free fraction with `minFreeFraction`. It needs the ORIX app (a command-line
+#   run has no application bundle): there the warning step fails by itself and the run ends PARTIALLY_SUCCEEDED.
+# - Sections are written as JSON blocks, exactly as the tools returned them. Process names are those of `ps`.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
@@ -35,6 +38,7 @@ spec:
       description: Warn when less than this fraction of the startup disk is free.
   permissions:
     filesystem:
+      read: ["${{ params.outputFolder }}"]
       write: ["${{ params.outputFolder }}"]
     notifications: true
   budget:
@@ -59,8 +63,6 @@ spec:
           steps:
             - id: disk
               tool: system.diskUsage
-              with:
-                path: /
         - name: processes
           steps:
             - id: processes
@@ -76,9 +78,13 @@ spec:
           steps:
             - id: network
               tool: system.networkState
-    - id: freeFraction
+    - id: startup
+      name: Pick the startup volume
       needs: [collect]
-      transform: ${{ steps.collect.output.disk.disk.freeBytes / steps.collect.output.disk.disk.totalBytes }}
+      transform: ${{ first(filter(steps.collect.output.disk.disk.volumes, v => v.path == "/")) }}
+    - id: freeFraction
+      needs: [startup]
+      transform: ${{ steps.startup.output.availableBytes / steps.startup.output.totalBytes }}
     - id: write
       name: Write the report
       needs: [paths, prepare, freeFraction]
@@ -89,39 +95,43 @@ spec:
         content: |
           # System health — ${{ env.DATETIME }}
 
-          Free space on the startup disk: ${{ steps.freeFraction.output * 100 }} %
+          Free space on the startup disk: ${{ steps.freeFraction.output * 100 }} % (${{ steps.startup.output.availableBytes }} of ${{ steps.startup.output.totalBytes }} bytes)
 
           ## Machine
           ${{ toJSON(steps.collect.output.machine.info) }}
 
           ## Disk
-          ${{ toJSON(steps.collect.output.disk.disk) }}
+          ${{ toJSON(steps.collect.output.disk.disk.volumes) }}
 
           ## Busiest processes
-          ${{ toJSON(steps.collect.output.processes.processes) }}
+          ${{ toJSON(steps.collect.output.processes.processes.processes) }}
 
           ## Power
           ${{ toJSON(steps.collect.output.power.power) }}
 
           ## Network
           ${{ toJSON(steps.collect.output.network.network) }}
-    - id: lowDisk
-      needs: [freeFraction]
-      if: ${{ steps.freeFraction.output < params.minFreeFraction }}
-      then: [warn]
-    - id: warn
-      notify: Less than ${{ params.minFreeFraction * 100 }} % of the startup disk is free.
-      title: System health
     - id: check
       needs: [write]
       verify:
         - fileContains: ${{ vars.report }}
           text: "## Network"
-        - truthy: ${{ steps.freeFraction.output > 0 }}
+        - truthy: ${{ steps.freeFraction.output > 0 && steps.freeFraction.output <= 1 }}
+        - truthy: ${{ steps.collect.output.machine.info.cores > 0 }}
     - id: result
       needs: [check]
       output:
         report: ${{ vars.report }}
         freeFraction: ${{ steps.freeFraction.output }}
+        lowDisk: ${{ steps.freeFraction.output < params.minFreeFraction }}
+        osVersion: ${{ steps.collect.output.machine.info.osVersion }}
       artifacts:
         - ${{ vars.report }}
+    - id: lowDisk
+      needs: [result]
+      if: ${{ steps.freeFraction.output < params.minFreeFraction }}
+      then: [warn]
+    - id: warn
+      notify: Less than ${{ params.minFreeFraction * 100 }} % of the startup disk is free.
+      title: System health
+      continueOnError: true
