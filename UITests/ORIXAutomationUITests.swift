@@ -30,16 +30,20 @@ final class ORIXAutomationUITests: XCTestCase {
 
         let app = launch(skipOnboarding: true)
         XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 20))
+        // Navigation goes through the command palette (keyboard only), so the test does not depend on where the window sits.
         let expected: [(String, String)] = [
-            ("dashboard", "Dashboard"), ("chat", "Say what you want done"), ("workflows", "Workflows"), ("code", "Code Studio"), ("runs", "Runs"),
-            ("scheduler", "Scheduler"), ("agents", "Agents"), ("skills", "Skills"), ("learn", "Watch & Learn"), ("permissions", "Permissions"), ("settings", "Settings"),
+            ("Go to Dashboard", "Dashboard"), ("Go to Agent", "Say what you want done"), ("Go to Workflow Studio", "Workflows"), ("Go to Code Studio", "Code Studio"),
+            ("Go to Runs", "Runs"), ("Go to Scheduler", "Scheduler"), ("Go to Agents", "Agents"), ("Go to Skills", "Skills"), ("Go to Watch", "Watch & Learn"),
+            ("Go to Permissions", "Permissions"), ("Go to Settings", "Settings"),
         ]
-        for (id, text) in expected {
-            let row = app.descendants(matching: .any)["sidebar.\(id)"].firstMatch
-            XCTAssertTrue(row.waitForExistence(timeout: 10), "sidebar row \(id)")
-            row.click()
+        for (command, text) in expected {
+            app.typeKey("k", modifierFlags: .command)
+            let field = app.textFields["palette.search"].firstMatch
+            XCTAssertTrue(field.waitForExistence(timeout: 10), "palette for \(command)")
+            field.typeText(command + "\n")
             let label = app.staticTexts.containing(NSPredicate(format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@", text, text)).firstMatch
-            XCTAssertTrue(label.waitForExistence(timeout: 10), "section \(id) should show “\(text)”")
+            XCTAssertTrue(label.waitForExistence(timeout: 10), "\(command) should show “\(text)”")
+            XCTAssertTrue(app.descendants(matching: .any)["sidebar.dashboard"].firstMatch.exists)
         }
         XCTAssertTrue(app.descendants(matching: .any)["app.emergencyStop"].firstMatch.exists)
         app.terminate()
