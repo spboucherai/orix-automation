@@ -12,7 +12,7 @@ import ORIXServices
 import SwiftUI
 
 public enum AppSection: String, CaseIterable, Identifiable, Sendable {
-    case dashboard, chat, workflows, code, runs, scheduler, agents, skills, permissions, settings
+    case dashboard, chat, workflows, code, runs, scheduler, agents, skills, learn, permissions, settings
     public var id: String { rawValue }
 
     public var title: LocalizedStringKey {
@@ -25,6 +25,7 @@ public enum AppSection: String, CaseIterable, Identifiable, Sendable {
         case .scheduler: return "Scheduler"
         case .agents: return "Agents"
         case .skills: return "Skills"
+        case .learn: return "Watch & Learn"
         case .permissions: return "Permissions"
         case .settings: return "Settings"
         }
@@ -40,6 +41,7 @@ public enum AppSection: String, CaseIterable, Identifiable, Sendable {
         case .scheduler: return "calendar.badge.clock"
         case .agents: return "person.2.badge.gearshape"
         case .skills: return "puzzlepiece.extension"
+        case .learn: return "record.circle"
         case .permissions: return "lock.shield"
         case .settings: return "gearshape"
         }

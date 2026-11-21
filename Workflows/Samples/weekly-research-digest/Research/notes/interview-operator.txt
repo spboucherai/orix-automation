@@ -1,0 +1,6 @@
+Interview with a grid operator, 12 October 2026 (notes, synthetic sample)
+
+The operator runs two 50 MW battery sites. Their main problem is not the cells but the inverters:
+three inverter failures in 2026, each taking a site offline for about a week.
+They want a spare-inverter contract before adding a third site.
+They did not share cost figures.

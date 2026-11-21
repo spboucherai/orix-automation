@@ -760,7 +760,9 @@ private extension Array where Element == WorkflowDiagnostic {
         #expect(flagged("readDotDot", "read") && flagged("readOutside", "read") && flagged("readPrefixTrap", "read"))
         #expect(flagged("writeOutside", "write"))
         #expect(flagged("copy", "read") && !flagged("copy", "write"))
-        #expect(flagged("moveOut", "delete") && !flagged("moveOut", "read") && !flagged("moveOut", "write"))
+        // Regression: the real filesystem.move needs write (not delete) on the source and write on the destination.
+        #expect(flagged("moveOut", "write") && !flagged("moveOut", "read") && !flagged("moveOut", "delete"))
+        #expect(m.filter { $0.stepID == "moveOut" }.map(\.path) == ["spec.steps[7].with.source"])
         #expect(m.filter { $0.stepID == "trashOK" }.map(\.path) == ["spec.steps[8].with.paths[1]"])
         #expect(flagged("render", "write") && !flagged("render", "read"))
         #expect(m.contains { $0.stepID == "shot" && $0.message.contains("permissions.screen") } && !flagged("shot", "write"))
@@ -783,7 +785,7 @@ private extension Array where Element == WorkflowDiagnostic {
               with: {url: "https://shop.example.org/cart"}
             - id: run
               tool: shell.run
-              with: {args: [/usr/bin/make, build]}
+              with: {executable: /usr/bin/make, args: [build, install]}
             - id: bash
               tool: shell.script
               with: {script: "echo hi"}
@@ -937,9 +939,13 @@ private extension Array where Element == WorkflowDiagnostic {
         #expect(grants.count == 16)
         #expect(grants.allSatisfy { $0.scope == .workflow(workflowID: "wf-9") && $0.maxTier <= .consequential && $0.source == "workflow:wf-9" && $0.createdAt == now && $0.isActive(at: now) })
         func tier(_ c: Capability) -> ApprovalTier? { grants.first { $0.capability == c }?.maxTier }
-        #expect(tier(.fileRead(path: "/Users/tester/Inbox")) == .readOnly)
+        // Regression: a read grant must be usable as the input of write and consequential calls (copy, move, run in a
+        // folder); the policy engine compares the grant ceiling with the tier of the whole call.
+        #expect(tier(.fileRead(path: "/Users/tester/Inbox")) == .consequential)
         #expect(tier(.fileDelete(path: "/Users/tester/Docs/In")) == .reversibleWrite)
-        #expect(tier(.clipboardRead) == .readOnly && tier(.notify) == .reversibleWrite)
+        #expect(tier(.clipboardRead) == .reversibleWrite && tier(.notify) == .reversibleWrite)
+        #expect(tier(.screenCapture(scope: "window:com.apple.Safari")) == .reversibleWrite)
+        #expect(tier(.fileWrite(path: "/Users/tester/Out")) ?? tier(.fileWrite(path: "/Users/tester/Docs/Out")) != .consequential)
         #expect(tier(.processExec(executable: "git")) == .consequential && tier(.network(host: "api.example.com")) == .consequential)
         #expect(Set(grants.map(\.id)).count == grants.count)
         #expect(WorkflowDocument.proposedTier(for: .secret(reference: "x")) == .consequential)

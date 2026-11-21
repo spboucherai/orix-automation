@@ -693,7 +693,8 @@ struct Validation {
         case "filesystem.copy", "filesystem.archive", "filesystem.unarchive":
             need("read", fs.read, ["source", "paths", "path"]); need("write", fs.write, ["destination"])
         case "filesystem.move":
-            need("read", fs.read, ["source", "paths"]); need("delete", fs.delete, ["source", "paths"]); need("write", fs.write, ["destination"])
+            // filesystem.move asks for read and write on the source (the source folder changes) and write on the destination.
+            need("read", fs.read, ["source", "paths"]); need("write", fs.write, ["source", "paths", "destination"])
         case "filesystem.trash", "filesystem.delete": need("delete", fs.delete, ["path", "paths"])
         default:
             if t.tool.hasPrefix("documents.") || t.tool == "screen.ocr" || t.tool == "screen.compare" {
@@ -716,10 +717,12 @@ struct Validation {
         }
         switch t.tool {
         case "shell.run":
-            if case .array(let a)? = t.arguments["args"], case .string(let exe)? = a.first, !exe.contains("${{") {
-                let name = (exe as NSString).lastPathComponent
-                if !p.processes.contains(exe) && !p.processes.contains(name) {
-                    add(.warning, "permission-missing", "'shell.run' executes '\(name)', which permissions.processes does not list", step: id, path: l.path + ".with.args[0]")
+            // The program is the `executable` argument; `args` are its arguments, never the program.
+            if case .string(let exe)? = t.arguments["executable"], let resolved = symbolic(exe), !resolved.contains("«") {
+                let name = (resolved as NSString).lastPathComponent
+                let declared = p.processes.compactMap { symbolic($0) }
+                if !declared.contains(resolved) && !declared.contains(name) {
+                    add(.warning, "permission-missing", "'shell.run' executes '\(name)', which permissions.processes does not list", step: id, path: l.path + ".with.executable")
                 }
             }
         case "shell.script": needEntry(p.scripts, "bash", "the script runtime")

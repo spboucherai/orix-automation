@@ -12,8 +12,12 @@ options:
   createIntermediateGroups: true
   developmentLanguage: en
 packages:
-  ORIXCore: { path: Packages/ORIXCore }
-  ORIXServices: { path: Packages/ORIXServices }
+  ORIXAppUI: { path: Packages/ORIXAppUI }
+  ORIXFeatureChat: { path: Packages/ORIXFeatureChat }
+  ORIXFeatureWorkflow: { path: Packages/ORIXFeatureWorkflow }
+  ORIXFeatureCode: { path: Packages/ORIXFeatureCode }
+  ORIXFeatureRuns: { path: Packages/ORIXFeatureRuns }
+  ORIXFeatureManage: { path: Packages/ORIXFeatureManage }
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -51,10 +55,18 @@ targets:
             destination: wrapper
             subpath: Contents/Library/LaunchAgents
     dependencies:
-      - package: ORIXCore
-        product: ORIXCore
-      - package: ORIXServices
-        product: ORIXServices
+      - package: ORIXAppUI
+        product: ORIXAppUI
+      - package: ORIXFeatureChat
+        product: ORIXFeatureChat
+      - package: ORIXFeatureWorkflow
+        product: ORIXFeatureWorkflow
+      - package: ORIXFeatureCode
+        product: ORIXFeatureCode
+      - package: ORIXFeatureRuns
+        product: ORIXFeatureRuns
+      - package: ORIXFeatureManage
+        product: ORIXFeatureManage
     entitlements:
       path: App/ORIXAutomation.entitlements
       properties:
@@ -69,6 +81,7 @@ targets:
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Simon-Pierre Boucher"
         INFOPLIST_KEY_NSPrincipalClass: NSApplication
+        INFOPLIST_KEY_LSUIElement: NO
         INFOPLIST_KEY_NSAppleEventsUsageDescription: "ORIX OS Automation sends Apple Events to the applications you allow, to carry out the automations you start."
         INFOPLIST_KEY_NSDesktopFolderUsageDescription: "ORIX OS Automation reads and writes files in the folders you grant to an automation."
         INFOPLIST_KEY_NSDocumentsFolderUsageDescription: "ORIX OS Automation reads and writes files in the folders you grant to an automation."

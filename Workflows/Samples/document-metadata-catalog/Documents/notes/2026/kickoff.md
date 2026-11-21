@@ -1,0 +1,3 @@
+# Kick-off
+
+Synthetic note.

@@ -1,0 +1,10 @@
+﻿region, units ,revenue
+ North , 12, 1200
+South,7,"1,050"
+
+ North , 12, 1200
+East,3
+West,9,810,extra
+ , ,
+South,7,"1,050"
+Central,15,2250

@@ -1,0 +1,11 @@
+Product sync — 3 November 2026
+Present: Alex (product), Sam (engineering), Robin (design)
+
+Alex: Two topics today, the export feature and the onboarding copy.
+Sam: Export to CSV is done and tested. PDF export needs another week.
+Alex: Then we ship CSV export in release 2.4 and move PDF export to 2.5. Agreed?
+Robin: Agreed.
+Sam: Agreed. I will write the release note for 2.4 by Friday 6 November.
+Robin: The onboarding copy is ready for review. I need comments by Wednesday.
+Alex: I will review the onboarding copy by Wednesday 4 November.
+Alex: Anything else? No. Thanks all.

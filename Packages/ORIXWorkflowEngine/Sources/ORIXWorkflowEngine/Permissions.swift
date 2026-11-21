@@ -63,12 +63,19 @@ extension WorkflowDocument {
         return out
     }
 
-    /// Highest tier a workflow-scoped grant of this capability authorises without a new approval. Never above tier 2:
-    /// high-risk operations (permanent deletion, privileged changes) always need a contemporaneous approval.
+    /// Highest tier of a tool call a workflow-scoped grant of this capability may take part in without a new approval.
+    /// Never above tier 2: high-risk operations (permanent deletion, privileged changes) always need a contemporaneous approval.
+    ///
+    /// The policy engine compares a grant's ceiling with the tier of the whole call, and a call names every capability it
+    /// touches. A read permission is therefore an *input* of write and consequential calls (copy, move, archive, convert,
+    /// running a script in a folder): its ceiling is tier 2, otherwise an accepted workflow could read a folder but never
+    /// copy from it. This widens nothing: the write, process, runtime or network side of such a call is a separate
+    /// capability that needs its own declared grant. Screen capture and clipboard read are only used by tier 1 tools
+    /// (`screen.capture` writes the picture to a file; `clipboard.read` is tier 1 by its manifest).
     public static func proposedTier(for capability: Capability) -> ApprovalTier {
         switch capability {
-        case .fileRead, .clipboardRead, .screenCapture: return .readOnly
-        case .fileWrite, .fileDelete, .clipboardWrite, .notify: return .reversibleWrite
+        case .fileRead: return .consequential
+        case .fileWrite, .fileDelete, .clipboardRead, .clipboardWrite, .notify, .screenCapture: return .reversibleWrite
         default: return .consequential
         }
     }
