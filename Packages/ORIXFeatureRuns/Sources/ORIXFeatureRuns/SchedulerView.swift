@@ -269,7 +269,7 @@ public struct SchedulerView: View {
                                         .fixedSize(horizontal: false, vertical: true)
                                     Text(item.name).font(Theme.Font.body).foregroundStyle(Theme.text).lineLimit(1)
                                     if let zone = AgendaBuilder.foreignZone(item) {
-                                        Pill(text: String(localized: "\(item.times.map { AgendaBuilder.clock($0, in: zone) }.joined(separator: ", ")) in \(zone.identifier)"), symbol: "globe")
+                                        Pill(text: "\(item.times.map { AgendaBuilder.clock($0, in: zone) }.joined(separator: ", ")) \(zone.identifier)", symbol: "globe")
                                     }
                                     Spacer(minLength: 0)
                                 }
