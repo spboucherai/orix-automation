@@ -11,10 +11,24 @@ cd "$(dirname "$0")/../.."
 FAIL=0
 PATTERN='sk-ant-[A-Za-z0-9_-]{20,}|sk-or-v1-[A-Za-z0-9]{20,}|sk-(proj-)?[A-Za-z0-9_-]{32,}|xai-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}'
 echo "== tracked files"
-if git ls-files -z | xargs -0 grep -nIE "$PATTERN" 2>/dev/null | grep -v "Scripts/release/secret-scan.sh" | cut -c1-120; then echo "FAIL: credential-shaped string in the repository"; FAIL=1; else echo "ok"; fi
+# Test sources hold synthetic, key-shaped fixtures for the redactor and the provider stubs; they are covered by the
+# exact-value check below instead of the shape check.
+if git ls-files -z | grep -zv "/Tests/" | xargs -0 grep -nIE "$PATTERN" 2>/dev/null | grep -v "Scripts/release/secret-scan.sh" | cut -c1-120; then echo "FAIL: credential-shaped string in the repository"; FAIL=1; else echo "ok"; fi
 echo "== git history"
-if git log -p --all 2>/dev/null | grep -nE "^\+.*($PATTERN)" | grep -v "PATTERN=" | cut -c1-120 | head -5 | grep -q .; then echo "FAIL: credential-shaped string in git history"; FAIL=1; else echo "ok"; fi
+if git log -p --all -- . ':(exclude)*/Tests/*' 2>/dev/null | grep -nE "^\+.*($PATTERN)" | grep -v "PATTERN=" | cut -c1-120 | head -5 | grep -q .; then echo "FAIL: credential-shaped string in git history"; FAIL=1; else echo "ok"; fi
 APP="${1:-}"
+# Exact-value check: when run under Scripts/test/with-dev-keys.sh, the real development keys are searched for (as fixed
+# strings, never printed) in every tracked file, the whole git history and the built app.
+REAL=0
+for v in "${ORIX_DEV_ANTHROPIC_API_KEY:-}" "${ORIX_DEV_OPENAI_API_KEY:-}" "${ORIX_DEV_OPENROUTER_API_KEY:-}"; do
+  [[ ${#v} -ge 20 ]] || continue
+  REAL=1
+  if git ls-files -z | xargs -0 grep -lIF -- "$v" >/dev/null 2>&1; then echo "FAIL: a real development key is in a tracked file"; FAIL=1; fi
+  if git log -p --all 2>/dev/null | grep -qF -- "$v"; then echo "FAIL: a real development key is in git history"; FAIL=1; fi
+  if [[ -n "$APP" ]] && LC_ALL=C grep -rqF -- "$v" "$APP" 2>/dev/null; then echo "FAIL: a real development key is in the app bundle"; FAIL=1; fi
+done
+echo "== exact development key values"
+if [[ $REAL -eq 1 ]]; then [[ $FAIL -eq 0 ]] && echo "ok: none of the real keys appears in tracked files, history or the bundle"; else echo "not checked (run under Scripts/test/with-dev-keys.sh to check)"; fi
 if [[ -n "$APP" ]]; then
   echo "== $APP"
   BIN="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$APP/Contents/Info.plist")"
