@@ -20,6 +20,8 @@ struct LaunchOptions {
         let p = s.lowercased().split(separator: "x").compactMap { Double($0) }
         return p.count == 2 ? CGSize(width: p[0], height: p[1]) : nil
     }
+    /// `dark` or `light`: overrides the appearance for this launch only (screenshots).
+    var appearance: String? { defaults.string(forKey: "ORIXAppearance") }
     var skipOnboarding: Bool { defaults.bool(forKey: "ORIXSkipOnboarding") }
     var isTest: Bool { defaults.bool(forKey: "ORIXUITest") }
     /// Debug builds only: accept provider keys from ORIX_DEV_*_API_KEY when the Keychain has none.
@@ -115,6 +117,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct BootView: View {
     @Bindable var boot: AppBoot
 
+    private func scheme(_ name: String) -> ColorScheme? { name == "dark" ? .dark : name == "light" ? .light : nil }
+
     var body: some View {
         switch boot.state {
         case .starting:
@@ -130,7 +134,7 @@ struct BootView: View {
         case .ready(let model):
             RootView(backgroundAgent: boot.backgroundAgent)
                 .environment(model)
-                .preferredColorScheme(model.settings.appearance == "dark" ? .dark : model.settings.appearance == "light" ? .light : nil)
+                .preferredColorScheme(scheme(boot.launch.appearance ?? model.settings.appearance))
                 .task { await SelfShot.runIfRequested(boot.launch) }
         }
     }
@@ -142,7 +146,15 @@ struct BootView: View {
 enum SelfShot {
     static func runIfRequested(_ launch: LaunchOptions) async {
         guard let path = launch.shotPath else { return }
+        NSApp.activate(ignoringOtherApps: true)
         try? await Task.sleep(nanoseconds: UInt64(launch.shotDelay * 1_000_000_000))
+        if let w = NSApp.windows.first(where: { $0.canBecomeMain && $0.isVisible }) {
+            // The window number lets a script photograph the composited window (`screencapture -l`), which includes
+            // vibrancy that an in-process view snapshot cannot capture. `-ORIXShotHold` keeps the app open meanwhile.
+            print("ORIX_WINDOW_ID \(w.windowNumber)"); fflush(stdout)
+            let hold = UserDefaults.standard.double(forKey: "ORIXShotHold")
+            if hold > 0 { try? await Task.sleep(nanoseconds: UInt64(hold * 1_000_000_000)); exit(0) }
+        }
         guard let window = NSApp.windows.first(where: { $0.canBecomeMain && $0.isVisible }), let view = window.contentView?.superview ?? window.contentView else { exit(2) }
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(2) }
         view.cacheDisplay(in: view.bounds, to: rep)
