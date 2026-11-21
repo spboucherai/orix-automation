@@ -109,7 +109,7 @@ repository, its history or the bundle, no development credential adapter and no 
 | Seatbelt cannot filter network by host; the embedded browser does not filter subresources | Documented limit |
 | Static analysis of scripts and skills is heuristic | Documented limit |
 | Dry runs of two examples (backup, website monitor) end `FAILED` because later steps need files earlier steps would create | Low |
-| The chat transcript showed an unexplained vertical gap in one off-screen render; not reproduced in the app | Low |
+| The chat transcript showed an unexplained vertical gap in one off-screen render; not checked in the running app | Low |
 
 ## Not built
 
