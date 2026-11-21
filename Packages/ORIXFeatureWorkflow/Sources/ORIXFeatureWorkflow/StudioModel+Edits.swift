@@ -223,6 +223,7 @@ extension WorkflowStudioModel {
     func autoLayout() {
         perform { $0.applyingAutoLayout() }
         needsFit = true
+        fitExactly = true
         if canvasSize.width > 0 { zoomToFit() }
     }
 

@@ -147,7 +147,9 @@ public actor RunManager {
         guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir), isDir.boolValue else { throw RunError.invalid("The workspace folder \(PathResolver.display(path)) does not exist.") }
         guard !PathResolver.isProtected(path) else { throw RunError.invalid("\(PathResolver.display(path)) is a protected location and cannot be a workspace.") }
         if access != .none {
-            await policy.add(PermissionGrant(capability: .fileRead(path: path), scope: .run(runID: runID), maxTier: .readOnly, source: "user", note: "Workspace of this run"))
+            // Reading is allowed up to tier 1 so that a copy or move whose source is in the workspace is not blocked on its read
+            // side; the write side of such a call still needs its own grant or an approval.
+            await policy.add(PermissionGrant(capability: .fileRead(path: path), scope: .run(runID: runID), maxTier: .reversibleWrite, source: "user", note: "Workspace of this run"))
         }
         if access == .readWrite {
             await policy.add(PermissionGrant(capability: .fileWrite(path: path), scope: .run(runID: runID), maxTier: .reversibleWrite, source: "user", note: "Workspace of this run"))

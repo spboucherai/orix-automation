@@ -7,6 +7,7 @@
 import AppKit
 import Foundation
 import Observation
+import SwiftUI
 import ORIXAppUI
 
 // MARK: Providers
@@ -15,6 +16,14 @@ import ORIXAppUI
 @MainActor
 @Observable
 final class ProvidersModel {
+    /// Outcome of one connection test, already redacted for display.
+    struct ConnectionTest: Sendable, Hashable {
+        var model: ModelRef
+        var ok: Bool
+        var latencyMs: Int
+        var message: String?
+    }
+
     struct State {
         var masked: String?
         var source: KeySource = .none
@@ -22,7 +31,7 @@ final class ProvidersModel {
         var catalogError: String?
         var catalogLoaded = false
         var loadingCatalog = false
-        var test: ProviderTestResult?
+        var test: ConnectionTest?
         var testing = false
         var keyError: String?
         var saving = false
@@ -98,12 +107,12 @@ final class ProvidersModel {
     func test(_ id: ProviderID, settings: AppSettings) async {
         if !state(id).catalogLoaded { await loadCatalog(for: id) }
         guard let model = testModel(for: id, settings: settings) else {
-            states[id, default: State()].test = ProviderTestResult(model: ModelRef(provider: id, model: ""), ok: false, latencyMs: 0, message: String(localized: "No model is known for this provider yet."))
+            states[id, default: State()].test = ConnectionTest(model: ModelRef(provider: id, model: ""), ok: false, latencyMs: 0, message: String(localized: "No model is known for this provider yet."))
             return
         }
         states[id, default: State()].testing = true
         let r = await services.providers.test(ModelRef(provider: id, model: model))
-        states[id, default: State()].test = ProviderTestResult(model: r.model, ok: r.ok, latencyMs: r.latencyMs, message: r.message.map { Redactor.shared.redact($0) })
+        states[id, default: State()].test = ConnectionTest(model: r.model, ok: r.ok, latencyMs: r.latencyMs, message: r.message.map { Redactor.shared.redact($0) })
         states[id, default: State()].testing = false
     }
 

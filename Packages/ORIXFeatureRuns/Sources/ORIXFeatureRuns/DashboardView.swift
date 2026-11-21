@@ -245,7 +245,7 @@ public struct DashboardView: View {
                        symbol: "checkmark.seal", tint: Theme.success)
             MetricTile(title: "Tokens", value: Format.tokens(m.tokens), detail: String(localized: "Input, output and cache"), symbol: "text.word.spacing", tint: Theme.blue)
             MetricTile(title: "Cost", value: Format.cost(m.costUSD, complete: m.costIsComplete),
-                       detail: m.costIsComplete ? String(localized: "From provider prices") : String(localized: "At least: some turns had no price"),
+                       detail: m.costIsComplete ? String(localized: "From provider prices") : String(localized: "Some turns had no price"),
                        symbol: "dollarsign.circle", tint: Theme.violet)
             MetricTile(title: "Average duration", value: Format.duration(m.averageDuration),
                        detail: data.periodRunsCapped ? String(localized: "Over the latest \(m.durationSample) finished runs") : String(localized: "Over \(m.durationSample) finished runs"),
@@ -274,8 +274,11 @@ public struct DashboardView: View {
                         .cornerRadius(2)
                 }
                 .chartForegroundStyleScale([ok: Theme.success, ko: Theme.danger, other: Theme.neutral])
-                .chartYAxis { AxisMarks(position: .leading) { _ in AxisGridLine().foregroundStyle(Theme.stroke); AxisValueLabel().foregroundStyle(Theme.textSecondary) } }
-                .chartXAxis { AxisMarks(values: .stride(by: .day, count: window.count > 10 ? 5 : 1)) { _ in AxisValueLabel(format: .dateTime.day().month(.abbreviated)).foregroundStyle(Theme.textSecondary) } }
+                .chartYAxis { AxisMarks(position: .leading) { v in
+                    AxisGridLine().foregroundStyle(Theme.stroke)
+                    AxisValueLabel { if let n = v.as(Int.self) { Text("\(n)").frame(width: 40, alignment: .trailing) } }.foregroundStyle(Theme.textSecondary)
+                } }
+                .chartXAxis { AxisMarks(values: .stride(by: .day, count: window.count > 10 ? 5 : 1)) { _ in AxisValueLabel(format: .dateTime.day().month(.abbreviated), centered: true).foregroundStyle(Theme.textSecondary) } }
                 .chartLegend(position: .top, alignment: .leading)
                 .frame(height: 150)
                 .transaction { $0.animation = nil }
@@ -292,9 +295,9 @@ public struct DashboardView: View {
                 }
                 .chartYAxis { AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { v in
                     AxisGridLine().foregroundStyle(Theme.stroke)
-                    AxisValueLabel { if let x = v.as(Double.self) { Text(Format.cost(x)) } }.foregroundStyle(Theme.textSecondary)
+                    AxisValueLabel { if let x = v.as(Double.self) { Text(Format.cost(x)).frame(width: 40, alignment: .trailing) } }.foregroundStyle(Theme.textSecondary)
                 } }
-                .chartXAxis { AxisMarks(values: .stride(by: .day, count: window.count > 10 ? 5 : 1)) { _ in AxisValueLabel(format: .dateTime.day().month(.abbreviated)).foregroundStyle(Theme.textSecondary) } }
+                .chartXAxis { AxisMarks(values: .stride(by: .day, count: window.count > 10 ? 5 : 1)) { _ in AxisValueLabel(format: .dateTime.day().month(.abbreviated), centered: true).foregroundStyle(Theme.textSecondary) } }
                 .frame(height: 90)
                 .transaction { $0.animation = nil }
                 .accessibilityLabel(Text("Cost per day in US dollars"))
@@ -516,16 +519,21 @@ public struct DashboardView: View {
                 Text("Nothing has run yet").font(Theme.Font.title).foregroundStyle(Theme.text)
                 Text("Give ORIX a first job. Every run will show up here with its status, cost and proof of what it did.")
                     .font(Theme.Font.body).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.center).frame(maxWidth: 460)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 230), spacing: Theme.Space.m)], spacing: Theme.Space.m) {
-                    starter("bubble.left.and.text.bubble.right", "Ask the agent", "Describe a task in your own words and watch it work.", id: "dashboard.start.chat") { model.open(.section(.chat)) }
-                    starter("square.grid.2x2", "Browse templates", "Start from a ready-made workflow and adapt it.", id: "dashboard.start.templates") { model.open(.section(.workflows)) }
-                    starter("key", model.configuredProviders.isEmpty ? "Add a provider" : "Manage providers",
-                            model.configuredProviders.isEmpty ? "Add your own API key. It stays in your Keychain." : "\(model.configuredProviders.count) provider key saved in your Keychain.",
-                            id: "dashboard.start.provider") { model.open(.section(.settings)) }
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: Theme.Space.m) { starters }.fixedSize(horizontal: false, vertical: true).frame(minWidth: 700, maxWidth: 1000)
+                    VStack(spacing: Theme.Space.m) { starters }
                 }
             }
             .frame(maxWidth: .infinity)
         }
+    }
+
+    @ViewBuilder private var starters: some View {
+        starter("bubble.left.and.text.bubble.right", "Ask the agent", "Describe a task in your own words and watch it work.", id: "dashboard.start.chat") { model.open(.section(.chat)) }
+        starter("square.grid.2x2", "Browse templates", "Start from a ready-made workflow and adapt it.", id: "dashboard.start.templates") { model.open(.section(.workflows)) }
+        starter("key", model.configuredProviders.isEmpty ? "Add a provider" : "Manage providers",
+                model.configuredProviders.isEmpty ? "Add your own API key. It stays in your Keychain." : "\(model.configuredProviders.count) provider key saved in your Keychain.",
+                id: "dashboard.start.provider") { model.open(.section(.settings)) }
     }
 
     private func starter(_ symbol: String, _ title: LocalizedStringKey, _ text: LocalizedStringKey, id: String, action: @escaping () -> Void) -> some View {
@@ -535,7 +543,7 @@ public struct DashboardView: View {
                 Text(title).font(Theme.Font.bodyStrong).foregroundStyle(Theme.text)
                 Text(text).font(Theme.Font.caption).foregroundStyle(Theme.textSecondary).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
             }
-            .padding(Theme.Space.m).frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
+            .padding(Theme.Space.m).frame(maxWidth: .infinity, minHeight: 92, maxHeight: .infinity, alignment: .topLeading)
             .background(Theme.surfaceRaised, in: RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous).strokeBorder(Theme.strokeStrong))
             .contentShape(Rectangle())

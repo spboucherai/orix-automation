@@ -1,0 +1,6 @@
+ORIX OS Automation — sample data of "Scheduled screenshot of a selected app window"
+Author: Simon-Pierre Boucher — contact@spboucher.ai
+
+No input data: the workflow captures a window that is on screen when it runs. Open a harmless window first (for
+example a Finder window, bundle identifier com.apple.finder) and pass that identifier as the `bundleID` parameter.
+The PNG goes to the `outputFolder` parameter (default ~/ORIX Samples/scheduled-window-screenshot/Captures).

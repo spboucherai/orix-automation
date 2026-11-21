@@ -125,7 +125,7 @@ spec:
         name: changes
     - id: hasPatch
       needs: [patch, prepare]
-      if: ${{ !steps.patch.output.empty }}
+      if: ${{ steps.patch.output.empty == false }}
       then: [savePatch]
     - id: savePatch
       name: Copy the patch next to the review

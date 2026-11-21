@@ -6,10 +6,13 @@
 # Contact: contact@spboucher.ai
 #
 # Limitations
-# - Text extraction works on PDFs that carry a text layer; scanned PDFs yield little or no text (no OCR here).
-# - Only the first maxBytes of each PDF's text are read; the character count in the report is the count of what was read.
+# - Text extraction works on PDFs that carry a text layer; scanned PDFs yield no text (no OCR here) and are reported
+#   with 0 text characters.
+# - Only the first 200 000 bytes of each PDF's text are read; the character count in the report is the count of what was read.
+# - The title is the PDF's own "Title" property; many PDFs have none and the column is then empty. A title containing
+#   a | character breaks the Markdown table (not the CSV).
 # - The report is a plain table; no model is involved, so nothing is "summarised".
-# - Tool argument names and output fields (matches[].path, pageCount, title, text) are to be reconciled with the real tools.
+# - At most 100 PDFs are found per run (the default bound of filesystem.search); encrypted PDFs fail their iteration.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
@@ -17,7 +20,7 @@ metadata:
   name: PDF to structured data and report
   description: >-
     Reads every PDF of a folder, extracts page count, title and the size of its text layer, writes the
-    result as a CSV catalogue and renders a one-page PDF report from a Markdown table.
+    result as a CSV catalogue and renders a PDF report from a Markdown table.
   tags: [pdf, documents, report]
 spec:
   triggers:
@@ -45,7 +48,9 @@ spec:
       with:
         path: ${{ params.inputFolder }}
         pattern: "*.pdf"
-        recursive: true
+    - id: pdfs
+      needs: [find]
+      transform: ${{ filter(steps.find.output.matches, m => m.type == "file") }}
     - id: prepare
       name: Create the output folder
       tool: filesystem.mkdir
@@ -53,8 +58,8 @@ spec:
         path: ${{ params.outputFolder }}
     - id: extract
       name: Read each PDF
-      needs: [find]
-      foreach: ${{ steps.find.output.matches }}
+      needs: [pdfs]
+      foreach: ${{ steps.pdfs.output }}
       as: pdf
       concurrency: 2
       collect: row
@@ -70,56 +75,60 @@ spec:
             maxBytes: 200000
         - id: row
           needs: [info, text]
-          transform: ${{ [basename(pdf.path), steps.info.output.pageCount, default(steps.info.output.title, ""), len(steps.text.output.text)] }}
+          transform: ${{ [basename(pdf.path), steps.info.output.pageCount, default(steps.info.output.title, ""), sum(steps.text.output.pages, p => len(p.text))] }}
     - id: catalog
       name: Write the CSV catalogue
       needs: [extract, prepare]
       tool: documents.csvWrite
       with:
         path: ${{ params.outputFolder }}/catalog.csv
-        header: [file, pages, title, textCharacters]
+        columns: [file, pages, title, textCharacters]
         rows: ${{ steps.extract.output.results }}
         overwrite: true
+    - id: compose
+      name: Compose the report
+      needs: [extract]
+      transform: |
+        ${{ "# PDF report\n\n"
+            + "Folder: " + params.inputFolder + "\n\n"
+            + "Generated: " + env.DATETIME + "\n\n"
+            + "Documents: " + steps.extract.output.count + " — pages in total: " + sum(steps.extract.output.results, r => r[1]) + "\n\n"
+            + "| File | Pages | Title | Text characters |\n|---|---|---|---|\n"
+            + join(map(steps.extract.output.results, r => "| " + join(r, " | ") + " |"), "\n") + "\n" }}
     - id: markdown
       name: Write the Markdown report
-      needs: [extract, prepare]
+      needs: [compose, prepare]
       tool: filesystem.write
       with:
         path: ${{ params.outputFolder }}/report.md
         overwrite: true
-        content: |
-          # PDF report
-
-          Folder: ${{ params.inputFolder }}
-          Generated: ${{ env.DATETIME }}
-          Documents: ${{ steps.extract.output.count }}
-          Pages in total: ${{ sum(steps.extract.output.results, r => r[1]) }}
-
-          | File | Pages | Title | Text characters |
-          |---|---|---|---|
-          ${{ join(map(steps.extract.output.results, r => "| " + join(r, " | ") + " |"), "\n") }}
+        content: ${{ steps.compose.output }}
     - id: render
       name: Render the report as PDF
-      needs: [markdown]
+      needs: [compose, prepare]
       tool: documents.renderPDF
       with:
-        source: ${{ params.outputFolder }}/report.md
+        content: ${{ steps.compose.output }}
         destination: ${{ params.outputFolder }}/report.pdf
         overwrite: true
     - id: check
       name: Verify the artifacts
-      needs: [catalog, render]
+      needs: [catalog, markdown, render]
       verify:
         - truthy: ${{ steps.extract.output.count > 0 }}
+        - equals: ["${{ steps.catalog.output.rows }}", "${{ steps.extract.output.count }}"]
         - fileNonEmpty: ${{ params.outputFolder }}/catalog.csv
         - fileContains: ${{ params.outputFolder }}/report.md
           text: "| File | Pages |"
         - fileNonEmpty: ${{ params.outputFolder }}/report.pdf
+        - truthy: ${{ steps.render.output.pages >= 1 }}
     - id: result
       needs: [check]
       output:
         documents: ${{ steps.extract.output.count }}
+        pages: ${{ sum(steps.extract.output.results, r => r[1]) }}
         catalog: ${{ params.outputFolder }}/catalog.csv
+        report: ${{ params.outputFolder }}/report.pdf
       artifacts:
         - ${{ params.outputFolder }}/catalog.csv
         - ${{ params.outputFolder }}/report.pdf

@@ -1,0 +1,5 @@
+ORIX OS Automation — sample data of "Local system health report"
+Author: Simon-Pierre Boucher — contact@spboucher.ai
+
+No input data: the workflow reads this Mac's own state (system, disk, processes, power, network) and writes
+health-<date>.md into the `outputFolder` parameter (default ~/ORIX Samples/system-health-report/Reports).

@@ -72,6 +72,24 @@ public enum Verifier {
         return (v, Artifact(path: path, kind: "file", bytes: size, sha256: hash))
     }
 
+    /// Folders this run wrote to through successful tool calls: the parent folders of the `path` / `destination`
+    /// arguments of every succeeded call of a tool that writes (tier 1 or above). Those calls passed the policy engine, so
+    /// inspecting a claimed artifact there reveals nothing the run was not allowed to touch. An agent step of a workflow
+    /// works in the folders the workflow declared, not in the run's scratch directory: without these roots every file it
+    /// wrote and then claimed was reported as "not inspected" and the step could never succeed.
+    static func writtenFolders(_ calls: [ToolCallRecord], workingDirectory: URL) -> [String] {
+        var out: [String] = []
+        for c in calls where c.status == .succeeded && (c.tier ?? .readOnly) >= .reversibleWrite {
+            for key in ["path", "destination"] {
+                guard let raw = c.arguments[key]?.stringValue, !raw.isEmpty,
+                      let path = try? PathResolver.canonical(raw, relativeTo: workingDirectory), !PathResolver.isProtected(path) else { continue }
+                let folder = (path as NSString).deletingLastPathComponent
+                if folder != "/" && !out.contains(folder) { out.append(folder) }
+            }
+        }
+        return out
+    }
+
     /// Status from evidence. `claimedDone` is the model saying it finished; it can never raise the status on its own.
     static func status(claimedDone: Bool, verifications: [VerificationResult], calls: [ToolCallRecord], mode: ExecutionMode) -> (RunStatus, [String]) {
         var notes: [String] = []

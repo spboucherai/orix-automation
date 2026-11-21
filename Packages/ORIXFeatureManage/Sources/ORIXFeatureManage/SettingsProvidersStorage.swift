@@ -15,6 +15,7 @@ struct ProvidersPane: View {
     @Environment(AppModel.self) private var model
     @State private var providers: ProvidersModel?
     @State private var confirmReset = false
+    var expandCatalogFor: ProviderID?
 
     var body: some View {
         ManagePage {
@@ -23,7 +24,7 @@ struct ProvidersPane: View {
             rolesCard
             if let providers {
                 ForEach(ProviderID.all, id: \.self) { id in
-                    ProviderCard(provider: id, providers: providers)
+                    ProviderCard(provider: id, providers: providers, startExpanded: expandCatalogFor == id)
                 }
             }
             spendingCard
@@ -54,7 +55,7 @@ struct ProvidersPane: View {
             HStack(spacing: Theme.Space.s) {
                 if let ref, !ref.model.isEmpty {
                     ProviderGlyph(provider: ref.provider, size: 18)
-                    Text(ref.model).font(Theme.Font.monoSmall).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.middle).frame(maxWidth: 260, alignment: .trailing)
+                    Text(ref.model).font(Theme.Font.monoSmall).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.middle)
                     if let clear { Button("Clear", action: clear).buttonStyle(.link).accessibilityIdentifier("settings.providers.clear.\(id)") }
                 } else {
                     Text(clear == nil ? LocalizedStringKey("Not chosen yet") : LocalizedStringKey("Same as the default")).font(Theme.Font.caption).foregroundStyle(Theme.textTertiary)
@@ -409,10 +410,10 @@ struct AuditList: View {
                     ForEach(entries) { e in
                         let k = ManageText.auditKind(e.kind)
                         HStack(alignment: .firstTextBaseline, spacing: Theme.Space.s) {
-                            Text(Format.dateTime(e.timestamp)).font(Theme.Font.monoSmall).foregroundStyle(Theme.textTertiary).frame(width: 128, alignment: .leading)
+                            Text(Format.dateTime(e.timestamp)).font(Theme.Font.monoSmall).foregroundStyle(Theme.textTertiary).lineLimit(1).frame(width: 166, alignment: .leading)
                             Label(k.label, systemImage: k.symbol).font(Theme.Font.captionStrong).foregroundStyle(k.color).frame(width: 132, alignment: .leading).lineLimit(1)
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(e.detail).font(Theme.Font.caption).foregroundStyle(Theme.text).lineLimit(2).textSelection(.enabled)
+                                Text(e.detail.replacingOccurrences(of: NSHomeDirectory(), with: "~")).font(Theme.Font.caption).foregroundStyle(Theme.text).lineLimit(2).textSelection(.enabled)
                                 if let tool = e.toolID {
                                     Text(tool + (e.tier.map { " · " + $0.label } ?? "")).font(Theme.Font.monoSmall).foregroundStyle(Theme.textTertiary)
                                 }

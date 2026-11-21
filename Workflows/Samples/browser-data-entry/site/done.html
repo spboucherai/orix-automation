@@ -1,0 +1,33 @@
+<!doctype html>
+<!--
+ORIX OS Automation
+File: Workflows/Samples/browser-data-entry/site/done.html
+Description: Confirmation page of the static test site: shows the submitted values read from the address.
+Author: Simon-Pierre Boucher
+Contact: contact@spboucher.ai
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ORIX test form — confirmation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Confirmation</h1>
+    <p id="result" hidden></p>
+    <p class="note">This is a test page: nothing was stored or sent.</p>
+  </main>
+  <script>
+    const q = new URLSearchParams(location.search);
+    const result = document.getElementById("result");
+    if (q.get("name") && q.get("email") && q.get("plan") && q.get("terms") === "yes") {
+      result.textContent = "Registered " + q.get("name") + " <" + q.get("email") + "> on plan " + q.get("plan") + ".";
+    } else {
+      result.textContent = "Incomplete submission.";
+      result.className = "error";
+    }
+    result.hidden = false;
+  </script>
+</body>
+</html>

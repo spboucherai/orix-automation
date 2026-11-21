@@ -1,0 +1,28 @@
+<!doctype html>
+<!--
+ORIX OS Automation
+File: Workflows/Samples/browser-data-entry/site/form.html
+Description: Page 1 of the static test site of the "Multi-step browser data entry" example: name and e-mail.
+Author: Simon-Pierre Boucher
+Contact: contact@spboucher.ai
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ORIX test form — step 1 of 2</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Sign-up test form</h1>
+    <p class="note">Step 1 of 2 — a static test page. Nothing is sent anywhere: the values travel in the address of the next page.</p>
+    <form action="details.html" method="get">
+      <label for="name">Full name</label>
+      <input id="name" name="name" type="text" required autocomplete="off">
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email" required autocomplete="off">
+      <button id="next" type="submit">Next</button>
+    </form>
+  </main>
+</body>
+</html>

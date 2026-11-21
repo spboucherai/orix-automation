@@ -13,6 +13,7 @@
 # - The low-disk notification compares that free fraction with `minFreeFraction`. It needs the ORIX app (a command-line
 #   run has no application bundle): there the warning step fails by itself and the run ends PARTIALLY_SUCCEEDED.
 # - Sections are written as JSON blocks, exactly as the tools returned them. Process names are those of `ps`.
+# - A dry run executes no read tool, so it has no disk figures: the steps after the collection are reported as skipped.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
@@ -84,6 +85,7 @@ spec:
       transform: ${{ first(filter(steps.collect.output.disk.disk.volumes, v => v.path == "/")) }}
     - id: freeFraction
       needs: [startup]
+      when: ${{ steps.startup.output != null }}
       transform: ${{ steps.startup.output.availableBytes / steps.startup.output.totalBytes }}
     - id: write
       name: Write the report

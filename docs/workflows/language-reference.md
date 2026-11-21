@@ -77,9 +77,12 @@ Paths must be absolute or start with `~/`; `~user` and relative paths are errors
 `${{ params.<name> }}` and nothing else from the expression language (permissions cannot depend on run-time values).
 `doc.declaredCapabilities(home:parameters:)` expands `~` against the given home, substitutes parameters (defaults when not
 supplied), canonicalises paths with `PathResolver` and returns Core `Capability` values; unresolvable entries are left
-out. `doc.proposedGrants(workflowID:)` turns them into `PermissionGrant`s of scope `.workflow` with a maximum tier of 0
-(file read, clipboard read, screen capture), 1 (file write, move to Trash, clipboard write, notifications) or 2
-(everything else). Tier 3 is never proposed. Declaring a permission grants nothing by itself: the policy engine decides.
+out. `doc.proposedGrants(workflowID:)` turns them into `PermissionGrant`s of scope `.workflow`. Each grant carries the
+highest tier of a tool call it may take part in: 1 for file write, move to Trash, clipboard read/write, notifications and
+screen capture; 2 for everything else, **including file read**. A read permission is an input of write and consequential
+calls (copy, move, archive, convert, running a script in a folder), and the policy engine compares the grant's ceiling with
+the tier of the whole call; the write, process, runtime or network side of such a call still needs its own declared
+permission. Tier 3 is never proposed. Declaring a permission grants nothing by itself: the policy engine decides.
 
 ### Budget
 
@@ -365,7 +368,8 @@ change flagged `isSecurityRelevant`.
 - Triggers are data here; firing them is the scheduler's job.
 - Step timeouts wait for the running tool to honour cancellation before the step is reported.
 - The static permission check knows the argument names of the canonical tools only (`path`, `source`, `destination`,
-  `paths`, `url`, `args`, `bundleID`, `cwd`).
+  `paths`, `url`, `executable`, `bundleID`, `cwd`). `filesystem.move` is checked for read and write on the source and
+  write on the destination, which is what the tool asks for.
 - A subworkflow's own `permissions` and `budget` are not enforced separately: the calling run's budget and the policy
   engine apply.
 - On resume the duration budget restarts from zero.

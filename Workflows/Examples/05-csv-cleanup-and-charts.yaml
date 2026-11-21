@@ -133,7 +133,7 @@ spec:
         rowsBefore: ${{ steps.inspect.output.totalRows }}
         rows: ${{ steps.cleaned.output.totalRows }}
         columns: ${{ steps.cleaned.output.columns }}
-        log: ${{ trim(steps.clean.output.stdout) }}
+        log: ${{ trim(default(steps.clean.output.stdout, "")) }}
       artifacts:
         - ${{ params.outputFolder }}/cleaned.csv
         - ${{ params.outputFolder }}/chart.svg

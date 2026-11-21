@@ -101,19 +101,19 @@ struct WorkflowCanvasView: View {
             .focused($focused)
             .onKeyPress(phases: [.down, .repeat]) { key($0) }
             .contextMenu { contextMenu }
-            .overlay(alignment: .bottomTrailing) { minimap(scene).padding(Theme.Space.m) }
+            .overlay(alignment: .bottomTrailing) { if geo.size.width >= 640, geo.size.height >= 300 { minimap(scene).padding(Theme.Space.m) } }
             .overlay(alignment: .bottomLeading) { zoomControls.padding(Theme.Space.m) }
             .onAppear {
                 vm.canvasSize = geo.size
-                if vm.needsFit { vm.zoomToFit() }
+                if vm.needsFit { vm.fitForReading() }
                 monitor.start { event in scroll(event) }
             }
             .onDisappear { monitor.stop() }
             .onChange(of: geo.size) { _, new in
                 vm.canvasSize = new
-                if vm.needsFit { vm.zoomToFit() }
+                if vm.needsFit { vm.fitForReading() }
             }
-            .onChange(of: vm.needsFit) { _, needs in if needs { vm.zoomToFit() } }
+            .onChange(of: vm.needsFit) { _, needs in if needs { vm.fitForReading() } }
             .accessibilityIdentifier("workflow.canvas")
         }
     }
@@ -123,7 +123,7 @@ struct WorkflowCanvasView: View {
     /// Running steps get a real pulse and a ticking elapsed time; everything else is drawn by the canvas.
     @ViewBuilder private func liveOverlays(_ scene: CanvasScene) -> some View {
         let live = vm.stepInfo.filter { $0.value.status == .running }
-        if vm.viewport.zoom >= 0.42 {
+        if vm.viewport.zoom >= 0.38 {
             ForEach(Array(live.keys).sorted(), id: \.self) { id in
                 if let node = vm.graph.node(id), !node.isContainer, let f = vm.geometry.frame(id, dragging: vm.draggingIDs, by: vm.dragTranslation) {
                     let s = vm.viewport.toScreen(f)
@@ -219,7 +219,7 @@ struct WorkflowCanvasView: View {
         let steps = vm.selectedStepIDs
         if steps.count == 1 {
             Button("Rename…") { beginRename(steps[0]) }
-            Button(vm.breakpoints.contains(steps[0]) ? "Remove breakpoint" : "Add breakpoint") { vm.toggleBreakpoint(steps[0]) }
+            Button { vm.toggleBreakpoint(steps[0]) } label: { Text(loc(vm.breakpoints.contains(steps[0]), "Remove breakpoint", "Add breakpoint")) }
         }
         if !steps.isEmpty {
             Button("Duplicate") { vm.duplicateSelection() }

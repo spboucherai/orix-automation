@@ -75,6 +75,7 @@ public final class WorkflowStudioModel {
     var draggingIDs: Set<String> = []
     var dragTranslation: CGSize = .zero
     var needsFit = true
+    var fitExactly = false
 
     // MARK: Sheets
     var showTemplates = false
@@ -437,9 +438,26 @@ public final class WorkflowStudioModel {
 
     // MARK: - Viewport
 
+    /// Shows the whole graph.
     func zoomToFit() {
-        guard canvasSize.width > 0 else { needsFit = true; return }
+        guard canvasSize.width > 0 else { needsFit = true; fitExactly = true; return }
         viewport.fit(geometry.bounds, in: canvasSize)
+        needsFit = false; fitExactly = false
+    }
+
+    /// First view of a workflow: the whole graph when it stays readable, else its beginning at a readable size.
+    func fitForReading() {
+        guard canvasSize.width > 0 else { needsFit = true; return }
+        if fitExactly { zoomToFit(); return }
+        viewport.fit(geometry.bounds, in: canvasSize)
+        let readable: CGFloat = 0.62
+        if viewport.zoom < readable {
+            let b = geometry.bounds
+            viewport.zoom = readable
+            let fitsTall = b.height * readable <= canvasSize.height - 64
+            viewport.offset = CGSize(width: 32 - b.minX * readable,
+                                     height: fitsTall ? (canvasSize.height - b.height * readable) / 2 - b.minY * readable : 32 - b.minY * readable)
+        }
         needsFit = false
     }
 

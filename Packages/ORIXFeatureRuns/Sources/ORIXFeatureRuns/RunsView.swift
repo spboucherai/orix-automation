@@ -15,7 +15,10 @@ public struct RunsView: View {
     @State private var pruneDays: Int?
     @State private var pruning = false
 
+    var initialTab: RunTab = .timeline
+
     public init() {}
+    init(initialTab: RunTab) { self.initialTab = initialTab }
 
     public var body: some View {
         @Bindable var model = model
@@ -30,7 +33,7 @@ public struct RunsView: View {
 
             Group {
                 if let id = model.selectedRunID {
-                    RunDetailView(runID: id).id(id)
+                    RunDetailView(runID: id, initialTab: initialTab).id(id)
                 } else {
                     EmptyState(symbol: "list.bullet.rectangle", title: "Select a run",
                                message: "Choose a run on the left to see its timeline, receipt, usage and console.")

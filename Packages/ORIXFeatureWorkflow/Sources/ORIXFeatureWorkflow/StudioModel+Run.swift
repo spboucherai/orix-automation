@@ -21,7 +21,7 @@ extension WorkflowStudioModel {
     var runIsDry: Bool { runOutcome?.dryRun ?? (runRecord?.title.hasSuffix("(dry run)") ?? (runKind == .dryRun)) }
 
     /// `each[2]/copy` → `copy`; `par(left)/a` → `a`; `poll#3/check` → `check`.
-    static func stepID(fromKey key: String) -> String { key.split(separator: "/").last.map(String.init) ?? key }
+    nonisolated static func stepID(fromKey key: String) -> String { key.split(separator: "/").last.map(String.init) ?? key }
 
     /// True when a step of the selected run is held for a person: an approval gate, or a tool call awaiting approval.
     func isWaitingApproval(_ id: String) -> Bool {
@@ -91,10 +91,12 @@ extension WorkflowStudioModel {
     func attach(runID: String) async {
         detachRun()
         activeRunID = runID
+        // Look for the handle first: without one the run already ended (or belongs to another process) and the store is current.
+        let handle = await services.workflows.handle(runID: runID)
+        runHandle = handle
         runRecord = try? await services.store.run(id: runID)
         await refreshRunFromStore()
-        guard let handle = await services.workflows.handle(runID: runID) else { return }
-        runHandle = handle
+        guard let handle else { return }
         let hub = services.runs.live
         runTasks.append(Task { [weak self] in
             for await update in hub.subscribe(runID: runID) {
@@ -131,7 +133,7 @@ extension WorkflowStudioModel {
     }
 
     /// Folds instance statuses (loop iterations, parallel branches) into one status per step id.
-    static func aggregate(_ steps: [String: StepStatus]) -> [String: (status: StepStatus, instances: Int)] {
+    nonisolated static func aggregate(_ steps: [String: StepStatus]) -> [String: (status: StepStatus, instances: Int)] {
         func rank(_ s: StepStatus) -> Int {
             switch s {
             case .running: return 6
@@ -198,7 +200,6 @@ extension WorkflowStudioModel {
         guard let runID = activeRunID else { return }
         if let r = try? await services.store.run(id: runID) { runRecord = r }
         runReceipt = try? await services.store.receipt(runID: runID)
-        guard runHandle == nil else { return }
         let events = (try? await services.store.events(runID: runID, afterSeq: 0, limit: 5000)) ?? []
         var info: [String: StepRunInfo] = [:]
         for e in events {
@@ -225,7 +226,12 @@ extension WorkflowStudioModel {
             for (_, r) in cp.results where info[r.stepID] != nil && !r.output.isNull { info[r.stepID]?.output = r.output }
         }
         if let outcome = runOutcome, outcome.runID == runID { for r in outcome.steps where info[r.stepID] != nil { info[r.stepID]?.output = r.output } }
-        stepInfo = info
+        if runHandle != nil {
+            // Live: the handle is the authority; the store only fills in what it has not reported yet.
+            for (k, v) in info where stepInfo[k] == nil { stepInfo[k] = v }
+        } else {
+            stepInfo = info
+        }
     }
 
     // MARK: Debugger controls

@@ -56,8 +56,14 @@ public struct ConsoleBuffer: Sendable {
         for raw in text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
             var piece = String(raw)
             if piece.count > Self.maxLineLength { piece = String(piece.prefix(Self.maxLineLength)) + " … [line cut]" }
-            lines.append(ConsoleLine(id: nextID, time: time, level: level, text: piece))
+            let line = ConsoleLine(id: nextID, time: time, level: level, text: piece)
             nextID += 1
+            if let last = lines.last, last.time > time {
+                // A recorded event that arrives after newer live output goes where its time says (after equal times).
+                var lo = 0, hi = lines.count
+                while lo < hi { let mid = (lo + hi) / 2; if lines[mid].time <= time { lo = mid + 1 } else { hi = mid } }
+                lines.insert(line, at: lo)
+            } else { lines.append(line) }
         }
         trim()
     }
@@ -82,9 +88,49 @@ public struct ConsoleBuffer: Sendable {
 
     /// Ids of the lines containing `query` (case- and accent-insensitive), oldest first, among the given levels.
     public func search(_ query: String, levels: Set<ConsoleLine.Level> = Set(ConsoleLine.Level.allCases)) -> [Int] {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return [] }
-        return lines.compactMap { levels.contains($0.level) && $0.text.range(of: q, options: [.caseInsensitive, .diacriticInsensitive]) != nil ? $0.id : nil }
+        guard let matcher = Matcher(query) else { return [] }
+        return lines.compactMap { levels.contains($0.level) && matcher.matches($0.text) ? $0.id : nil }
+    }
+
+    /// Case- and accent-insensitive "contains". Plain ASCII, the common case in logs, is compared byte by byte;
+    /// anything else goes through Foundation's comparison.
+    public struct Matcher: Sendable {
+        let query: String
+        let ascii: [UInt8]?
+
+        public init?(_ query: String) {
+            let q = query.trimmingCharacters(in: .whitespaces)
+            guard !q.isEmpty else { return nil }
+            self.query = q
+            ascii = q.utf8.allSatisfy { $0 < 128 } ? q.utf8.map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 } : nil
+        }
+
+        public func matches(_ text: String) -> Bool {
+            guard let ascii else { return text.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+            var sawNonASCII = false
+            var text = text
+            let hit = text.withUTF8 { bytes -> Bool in
+                let n = bytes.count, m = ascii.count
+                guard n >= m else { sawNonASCII = bytes.contains { $0 >= 128 }; return false }
+                let first = ascii[0]
+                var i = 0
+                while i <= n - m {
+                    let b = bytes[i]
+                    if b >= 128 { sawNonASCII = true }
+                    if (b >= 65 && b <= 90 ? b + 32 : b) == first {
+                        var j = 1
+                        while j < m, { let c = bytes[i + j]; return (c >= 65 && c <= 90 ? c + 32 : c) == ascii[j] }() { j += 1 }
+                        if j == m { return true }
+                    }
+                    i += 1
+                }
+                if !sawNonASCII { sawNonASCII = bytes[max(0, n - m)...].contains { $0 >= 128 } }
+                return false
+            }
+            if hit { return true }
+            // "resume" must still find "résumé".
+            return sawNonASCII && text.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        }
     }
 
     public static func render(_ line: ConsoleLine) -> String { "\(timestamp(line.time))  \(line.level.tag.padding(toLength: 6, withPad: " ", startingAt: 0))  \(line.text)" }

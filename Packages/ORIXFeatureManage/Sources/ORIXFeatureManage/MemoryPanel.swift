@@ -56,6 +56,7 @@ struct MemoryPanel: View {
     var compact = false
     @State private var memory: MemoryModel?
     @State private var confirmDeleteAll = false
+    @State private var deleteCandidate: MemoryRecord?
     @State private var error: String?
 
     var body: some View {
@@ -93,11 +94,17 @@ struct MemoryPanel: View {
         }
         .task { if memory == nil { memory = MemoryModel(services: model.services) } }
         .task(id: model.revision) { await memory?.reload() }
+        .confirmationDialog("Delete this memory?", isPresented: deleteOne, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { if let r = deleteCandidate { Task { await memory?.delete(r.id) } }; deleteCandidate = nil }
+            Button("Cancel", role: .cancel) { deleteCandidate = nil }
+        } message: { Text("The agent will no longer be given this record. This cannot be undone.") }
         .confirmationDialog("Delete every memory record?", isPresented: $confirmDeleteAll, titleVisibility: .visible) {
             Button("Delete all", role: .destructive) { Task { await memory?.deleteAll() } }
             Button("Cancel", role: .cancel) {}
         } message: { Text("Agents lose every remembered preference, fix and fact. Run history and workflows are not affected. This cannot be undone.") }
     }
+
+    private var deleteOne: Binding<Bool> { Binding(get: { deleteCandidate != nil }, set: { if !$0 { deleteCandidate = nil } }) }
 
     private func row(_ r: MemoryRecord, _ memory: MemoryModel) -> some View {
         let scope = MemoryModel.scopeLabel(r.scope)
@@ -117,7 +124,7 @@ struct MemoryPanel: View {
                 if MemoryModel.isPending(r) {
                     Button("Approve") { Task { await memory.approve(r.id) } }.buttonStyle(.link).accessibilityIdentifier("memory.approve.\(r.id)")
                 }
-                Button("Delete", role: .destructive) { Task { await memory.delete(r.id) } }.buttonStyle(.link).foregroundStyle(Theme.danger)
+                Button("Delete", role: .destructive) { deleteCandidate = r }.buttonStyle(.link).foregroundStyle(Theme.danger)
                     .accessibilityIdentifier("memory.delete.\(r.id)")
             }
         }

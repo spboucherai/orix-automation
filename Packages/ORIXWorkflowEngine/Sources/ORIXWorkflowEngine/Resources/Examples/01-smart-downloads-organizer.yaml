@@ -6,11 +6,13 @@
 # Contact: contact@spboucher.ai
 #
 # Limitations
-# - Only the top level of the source folder is organised; subfolders are left where they are.
-# - Files are moved, never deleted and never overwritten (overwrite: false): a name collision fails that move.
+# - Only the top level of the source folder is organised; subfolders and hidden files (dot files) are left where they are.
+# - Files are moved, never deleted and never overwritten: filesystem.move refuses an existing destination, so a name
+#   collision fails that move and stops the run (files already moved stay moved; the run says which one failed).
 # - The category comes from the file extension only (see spec.variables.categories); unknown extensions go to "Other".
-# - The `delete` permission on the source folder is what moving a file out of it requires; no delete tool is called.
-# - Tool argument names and output fields (entries[].name/path/isDirectory) are to be reconciled with the real filesystem tools.
+# - Moving a file out of a folder changes that folder: filesystem.move needs write access to the source as well as to
+#   the destination, which is why both are listed under permissions.filesystem.write. No delete tool is called.
+# - At most 500 entries are listed per run (the default limit of filesystem.list); run it again for larger folders.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
@@ -36,9 +38,7 @@ spec:
   permissions:
     filesystem:
       read: ["${{ params.source }}", "${{ params.destination }}"]
-      write: ["${{ params.destination }}"]
-      delete: ["${{ params.source }}"]
-    notifications: true
+      write: ["${{ params.source }}", "${{ params.destination }}"]
   budget:
     maxDurationSeconds: 600
     maxToolCalls: 2000
@@ -77,7 +77,7 @@ spec:
     - id: files
       name: Keep files only
       needs: [list]
-      transform: ${{ filter(steps.list.output.entries, e => !e.isDirectory) }}
+      transform: ${{ filter(steps.list.output.entries, e => e.type == "file") }}
     - id: confirm
       name: Ask before moving
       needs: [files]
@@ -103,7 +103,6 @@ spec:
           with:
             source: ${{ file.path }}
             destination: ${{ joinPath(params.destination, steps.category.output, file.name) }}
-            overwrite: false
     - id: remaining
       name: List what is left in the source
       needs: [organize]
@@ -116,13 +115,10 @@ spec:
       needs: [organize, remaining]
       verify:
         - equals: ["${{ steps.organize.output.count }}", "${{ len(steps.files.output) }}"]
-        - equals: ["${{ count(steps.remaining.output.entries, e => !e.isDirectory) }}", 0]
-    - id: done
-      needs: [check]
-      notify: Moved ${{ steps.organize.output.count }} file(s) into ${{ params.destination }}.
-      title: Downloads organised
+        - equals: ["${{ count(steps.remaining.output.entries, e => e.type == 'file') }}", 0]
     - id: result
       needs: [check]
       output:
         moved: ${{ steps.organize.output.count }}
+        files: ${{ map(steps.organize.output.results, "destination") }}
         destination: ${{ params.destination }}

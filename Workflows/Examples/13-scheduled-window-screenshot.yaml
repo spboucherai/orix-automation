@@ -1,19 +1,20 @@
 # ORIX OS Automation
 # File: Workflows/Examples/13-scheduled-window-screenshot.yaml
-# Description: Built-in automation: captures the window of one chosen app on a schedule, with the user's consent.
+# Description: Built-in automation: captures the frontmost window of one chosen application into a dated PNG, with consent.
 #
 # Author: Simon-Pierre Boucher
 # Contact: contact@spboucher.ai
 #
 # Limitations
 # - Needs the macOS Screen Recording permission for ORIX (System Settings › Privacy & Security). ORIX cannot grant it
-#   to itself; without it the capture step ends BLOCKED_PERMISSION.
+#   to itself; without it the capture step ends BLOCKED_PERMISSION and no file is written.
 # - Only the window of the application named by `bundleID` is captured (permission scope window:<bundleID>), never the
 #   whole display. A window showing passwords or payment forms is still captured as displayed: choose the app with care.
-# - When the app has no window on screen the capture is skipped and the run says so; nothing is launched or brought forward.
+#   Password managers are refused by the tool, and nothing is captured while a password field has keyboard focus.
+# - When the app has no normal window on screen (not running, minimised, on another Space) the capture is skipped, the
+#   run succeeds and says `captured: false`; nothing is launched or brought forward.
 # - Screenshots stay in the local folder; no step sends them anywhere. Old captures are never pruned.
 # - A locked or sleeping Mac yields no usable window capture.
-# - Argument names (scope, bundleID) and output fields (windows) are to be reconciled with the real screen and system tools.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
@@ -62,22 +63,24 @@ spec:
     - id: hasWindow
       needs: [windows, paths, prepare]
       if: ${{ len(steps.windows.output.windows) > 0 }}
-      then: [capture]
+      then: [capture, check]
     - id: capture
       name: Capture the window
       tool: screen.capture
       with:
         scope: window
         bundleID: ${{ params.bundleID }}
-        destination: ${{ vars.capture }}
+        path: ${{ vars.capture }}
       timeoutSeconds: 30
     - id: check
       needs: [capture]
       verify:
         - fileNonEmpty: ${{ vars.capture }}
+        - truthy: ${{ steps.capture.output.pixelWidth > 0 && steps.capture.output.pixelHeight > 0 }}
     - id: result
       needs: [hasWindow]
       output:
         captured: ${{ steps.hasWindow.output.result }}
         file: ${{ vars.capture }}
         application: ${{ params.bundleID }}
+        windows: ${{ len(steps.windows.output.windows) }}

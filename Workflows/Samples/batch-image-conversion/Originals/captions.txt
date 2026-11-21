@@ -1,0 +1,1 @@
+Not an image: the workflow must leave this file out.

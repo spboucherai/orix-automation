@@ -7,6 +7,7 @@
 import AppKit
 import Foundation
 import Observation
+import SwiftUI
 import ORIXAppUI
 
 /// The kinds of grant a person can add by hand. Secrets, clipboard and single-call scopes are not offered here.

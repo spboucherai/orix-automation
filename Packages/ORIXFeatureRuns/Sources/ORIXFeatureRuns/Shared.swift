@@ -11,7 +11,8 @@ import SwiftUI
 struct CardTitle<Trailing: View>: View {
     let title: LocalizedStringKey
     let symbol: String
-    @ViewBuilder var trailing: Trailing
+    let trailing: Trailing
+    init(_ title: LocalizedStringKey, symbol: String, @ViewBuilder trailing: () -> Trailing) { self.title = title; self.symbol = symbol; self.trailing = trailing() }
     var body: some View {
         HStack(spacing: Theme.Space.s) {
             Image(systemName: symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.violet)

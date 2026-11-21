@@ -1,0 +1,40 @@
+<!doctype html>
+<!--
+ORIX OS Automation
+File: Workflows/Samples/browser-data-entry/site/details.html
+Description: Page 2 of the static test site: plan and terms; carries the values of page 1 in hidden fields.
+Author: Simon-Pierre Boucher
+Contact: contact@spboucher.ai
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ORIX test form — step 2 of 2</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Choose a plan</h1>
+    <p class="note">Step 2 of 2 for <strong id="who"></strong>.</p>
+    <form action="done.html" method="get">
+      <input id="carry-name" name="name" type="hidden">
+      <input id="carry-email" name="email" type="hidden">
+      <label for="plan">Plan</label>
+      <select id="plan" name="plan" required>
+        <option value="">Choose…</option>
+        <option value="solo">Solo</option>
+        <option value="team">Team</option>
+        <option value="company">Company</option>
+      </select>
+      <label class="inline"><input id="terms" name="terms" type="checkbox" value="yes" required> I accept the test terms</label>
+      <button id="submit" type="submit">Submit</button>
+    </form>
+  </main>
+  <script>
+    const q = new URLSearchParams(location.search);
+    document.getElementById("carry-name").value = q.get("name") || "";
+    document.getElementById("carry-email").value = q.get("email") || "";
+    document.getElementById("who").textContent = q.get("name") || "(no name)";
+  </script>
+</body>
+</html>

@@ -396,6 +396,50 @@ struct Directory: AgentDirectory {
         #expect(r.outcome.status == .failed)
     }
 
+    /// Regression: an agent step of a workflow writes into the folders the workflow declared, which are not the task's
+    /// working directory. A file it wrote there with a successful write call and then claimed must be inspected (and
+    /// hashed); a file it only read, or never touched, must still not be.
+    @Test func claimedArtifactInAFolderTheRunWroteToIsInspected() async throws {
+        let h = try Harness(); defer { h.tmp.remove() }
+        let elsewhere = try TempDirectory(prefix: "orix-agent-out"); defer { elsewhere.remove() }
+        let readOnly = try TempDirectory(prefix: "orix-agent-in"); defer { readOnly.remove() }
+        try "source".write(to: readOnly.url.appendingPathComponent("input.txt"), atomically: true, encoding: .utf8)
+        await h.tools.register("fs.write", schema: .object(["path": .string(), "content": .string()], required: ["path", "content"]),
+                               sideEffect: .write, tier: .reversibleWrite, idempotent: false) { call, _ in
+            let path = call.arguments["path"]?.stringValue ?? ""
+            do { try (call.arguments["content"]?.stringValue ?? "").write(toFile: path, atomically: true, encoding: .utf8) }
+            catch { return .failure(.failed, ToolFailure(code: "io", message: error.localizedDescription)) }
+            return .success(["path": .string(path)], summary: "Wrote \(path)")   // no artifact reported, like filesystem.write creating a file
+        }
+        await h.tools.register("fs.read", schema: .object(["path": .string()], required: ["path"]), sideEffect: .read, tier: .readOnly, idempotent: true) { call, _ in
+            .success(["content": "source"], summary: "Read \(call.arguments["path"]?.stringValue ?? "")")
+        }
+        let written = elsewhere.url.appendingPathComponent("notes.md").path, input = readOnly.url.appendingPathComponent("input.txt").path
+        let p = ScriptedProvider(turns: [
+            ScriptedProvider.tool("fs.read", ["path": .string(input)]),
+            ScriptedProvider.tool("fs.write", ["path": .string(written), "content": "# Notes"]),
+            ScriptedProvider.tool("task.complete", ["summary": "done", "artifacts": [.string(written), .string(input), "/etc/hosts"]]),
+        ])
+        let r = await h.runtime(p).execute(task: h.task(expectations: [Expectation(kind: "file_contains", path: written, text: "# Notes")]), profile: h.profile(), runID: "s5")
+        let claims = r.receipt.verifications.filter { $0.assertion.hasPrefix("Claimed artifact") }
+        #expect(claims.count == 3)
+        #expect(claims[0].passed && claims[0].evidence.contains("sha256"), "\(claims[0].evidence)")
+        #expect(!claims[1].passed && claims[1].evidence.contains("not inspected"), "a folder the run only read from is not a root")
+        #expect(!claims[2].passed && claims[2].evidence.contains("not inspected"))
+        #expect(r.receipt.artifacts.contains { $0.path.hasSuffix("/notes.md") && $0.sha256 != nil })
+
+        // The same run without the two bad claims succeeds: before the fix it ended PARTIALLY_SUCCEEDED.
+        let q = ScriptedProvider(turns: [
+            ScriptedProvider.tool("fs.write", ["path": .string(written), "content": "# Notes"]),
+            ScriptedProvider.tool("task.complete", ["summary": "done", "artifacts": [.string(written)]]),
+        ])
+        let ok = await h.runtime(q).execute(task: h.task(expectations: [Expectation(kind: "file_contains", path: written, text: "# Notes")]), profile: h.profile(), runID: "s6")
+        #expect(ok.outcome.status == .succeeded, "\(ok.receipt.verifications.map(\.evidence)) \(ok.receipt.limitations)")
+        #expect(Verifier.writtenFolders([ToolCallRecord(id: "1", toolID: "x", arguments: ["path": "~/.ssh/config"], status: .succeeded, summary: "", durationMs: 0, tier: .reversibleWrite),
+                                         ToolCallRecord(id: "2", toolID: "x", arguments: ["path": "/tmp/a/b.txt"], status: .failed, summary: "", durationMs: 0, tier: .reversibleWrite)],
+                                        workingDirectory: h.tmp.url).isEmpty, "protected locations and failed calls add no root")
+    }
+
     @Test func compactionKeepsTheTranscriptValid() async throws {
         let h = try Harness(); defer { h.tmp.remove() }
         let big = String(repeating: "lorem ipsum ", count: 400)

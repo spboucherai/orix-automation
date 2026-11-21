@@ -1,36 +1,42 @@
 # ORIX OS Automation
 # File: Workflows/Examples/15-browser-data-entry.yaml
-# Description: Built-in automation: fills and submits a form on a local test page in the built-in browser, with an approval before submitting.
+# Description: Built-in automation: fills a two-page test form in the built-in browser, asks before submitting, and keeps a screenshot as evidence.
 #
 # Author: Simon-Pierre Boucher
 # Contact: contact@spboucher.ai
 #
 # Limitations
-# - Targets a TEST page: by default http://localhost:8765/form.html, which the user serves from the sample folder
-#   (for example `python3 -m http.server 8765` inside it). Only the host listed in permissions.browser can be opened.
-# - The selectors (#name, #email, button[type=submit], #result) match the sample form; another page needs other selectors.
+# - Targets a TEST site: by default http://localhost:8765/form.html, which the user serves from the sample folder
+#   (`python3 -m http.server 8765 --bind 127.0.0.1` inside it). Only the host named by the `host` parameter can be
+#   opened: it is the declared browser permission, and navigation to any other host is blocked by the browser itself.
+# - Plain http is accepted for this Mac's loopback addresses only; any other site must be https.
+# - The selectors (#name, #email, #next, #plan, #terms, #submit, #result) match the sample pages; another site needs
+#   other selectors. One browser session per run: the steps act on the page that is open.
 # - Submitting a form is an external action: the workflow always stops for approval first. An unanswered approval leaves
-#   the run WAITING_APPROVAL and nothing is submitted.
+#   the run WAITING_APPROVAL and nothing is submitted (the browser session is closed when the run ends).
 # - Do not point this at a real site without reading its terms; no CAPTCHA, login or anti-bot measure is handled or bypassed.
-# - The `page` handle passed between browser steps, argument names (value) and output fields (pageID, text) are to be
-#   reconciled with the real browser tools.
+# - The built-in browser is a private WebKit view: it shares no cookies, history or passwords with Safari.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
   id: browser-data-entry
   name: Multi-step browser data entry on a test site
   description: >-
-    Opens a local test form in the built-in browser, fills two fields, asks for approval, submits, reads
-    the confirmation, checks that it shows the submitted name and saves a screenshot as evidence.
+    Opens a local test form in the built-in browser, fills two pages of fields, asks for approval, submits,
+    reads the confirmation, checks that it shows the submitted values and saves a screenshot as evidence.
   tags: [browser, forms, approval, test]
 spec:
   triggers:
     - type: manual
   parameters:
+    - name: host
+      type: string
+      default: localhost
+      description: The only host the browser may open; it is the declared browser permission.
     - name: pageURL
       type: string
-      default: http://localhost:8765/form.html
-      description: Address of the test form. Its host must be listed in permissions.browser.
+      default: http://${{ params.host }}:8765/form.html
+      description: Address of the first page of the test form, on that host.
     - name: fullName
       type: string
       default: Ada Lovelace
@@ -39,6 +45,10 @@ spec:
       type: string
       default: ada@example.com
       description: Value typed into the e-mail field.
+    - name: plan
+      type: string
+      default: team
+      description: Value chosen in the plan list on the second page (solo, team or company).
     - name: evidenceFolder
       type: path
       default: ~/ORIX Samples/browser-data-entry/Evidence
@@ -47,7 +57,7 @@ spec:
     filesystem:
       read: ["${{ params.evidenceFolder }}"]
       write: ["${{ params.evidenceFolder }}"]
-    browser: [localhost]
+    browser: ["${{ params.host }}"]
   budget:
     maxDurationSeconds: 600
     maxToolCalls: 30
@@ -66,78 +76,89 @@ spec:
       needs: [open]
       tool: browser.waitFor
       with:
-        page: ${{ steps.open.output.pageID }}
         selector: "#name"
+        state: visible
         timeoutSeconds: 15
-      onError: closeAfterFailure
     - id: fillName
       needs: [formReady]
       tool: browser.fill
       with:
-        page: ${{ steps.open.output.pageID }}
         selector: "#name"
         value: ${{ params.fullName }}
-      onError: closeAfterFailure
     - id: fillEmail
       needs: [fillName]
       tool: browser.fill
       with:
-        page: ${{ steps.open.output.pageID }}
         selector: "#email"
         value: ${{ params.email }}
-      onError: closeAfterFailure
-    - id: confirm
+    - id: next
+      name: Go to the second page
       needs: [fillEmail]
-      approval: Submit the form at ${{ params.pageURL }} with name "${{ params.fullName }}" and e-mail "${{ params.email }}"?
+      tool: browser.click
+      with:
+        selector: "#next"
+    - id: detailsReady
+      needs: [next]
+      tool: browser.waitFor
+      with:
+        selector: "#plan"
+        state: visible
+        timeoutSeconds: 15
+    - id: choosePlan
+      needs: [detailsReady]
+      tool: browser.fill
+      with:
+        selector: "#plan"
+        value: ${{ params.plan }}
+    - id: acceptTerms
+      needs: [choosePlan]
+      tool: browser.fill
+      with:
+        selector: "#terms"
+        checked: true
+    - id: confirm
+      needs: [acceptTerms]
+      approval: Submit the form at ${{ params.pageURL }} with name "${{ params.fullName }}", e-mail "${{ params.email }}" and plan "${{ params.plan }}"?
     - id: submit
       needs: [confirm]
       tool: browser.click
       with:
-        page: ${{ steps.open.output.pageID }}
-        selector: button[type=submit]
-      onError: closeAfterFailure
+        selector: "#submit"
     - id: confirmation
       needs: [submit]
       tool: browser.waitFor
       with:
-        page: ${{ steps.open.output.pageID }}
         selector: "#result"
+        state: visible
+        text: ${{ params.fullName }}
         timeoutSeconds: 15
-      onError: closeAfterFailure
     - id: readResult
       needs: [confirmation]
       tool: browser.read
       with:
-        page: ${{ steps.open.output.pageID }}
-        selector: "#result"
         maxBytes: 20000
     - id: screenshot
-      needs: [confirmation, prepare]
+      needs: [readResult, prepare]
       tool: browser.screenshot
       with:
-        page: ${{ steps.open.output.pageID }}
-        destination: ${{ params.evidenceFolder }}/confirmation.png
+        path: ${{ params.evidenceFolder }}/confirmation.png
         overwrite: true
     - id: close
-      needs: [readResult, screenshot]
+      needs: [screenshot]
       tool: browser.close
-      with:
-        page: ${{ steps.open.output.pageID }}
-    - id: closeAfterFailure
-      name: Close the page when a step failed
-      tool: browser.close
-      with:
-        page: ${{ steps.open.output.pageID }}
-      continueOnError: true
     - id: check
       needs: [close]
       verify:
         - truthy: ${{ contains(steps.readResult.output.text, params.fullName) }}
+        - truthy: ${{ contains(steps.readResult.output.text, params.email) }}
+        - truthy: ${{ contains(steps.readResult.output.text, params.plan) }}
         - fileNonEmpty: ${{ params.evidenceFolder }}/confirmation.png
     - id: result
       needs: [check]
       output:
         confirmation: ${{ steps.readResult.output.text }}
+        page: ${{ steps.readResult.output.url }}
         screenshot: ${{ params.evidenceFolder }}/confirmation.png
+        screenshotSha256: ${{ steps.screenshot.output.sha256 }}
       artifacts:
         - ${{ params.evidenceFolder }}/confirmation.png

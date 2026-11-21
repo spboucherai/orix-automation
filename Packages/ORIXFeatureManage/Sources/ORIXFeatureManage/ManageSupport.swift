@@ -223,7 +223,7 @@ struct ManageTabBar<T: Hashable>: View {
                             Image(systemName: item.symbol).font(.system(size: 11, weight: .medium))
                             Text(item.title).font(Theme.Font.bodyStrong).lineLimit(1)
                             if let c = item.count {
-                                Text("\(c)").font(Theme.Font.captionStrong).monospacedDigit()
+                                Text(verbatim: String(c)).font(Theme.Font.captionStrong).monospacedDigit()
                                     .padding(.horizontal, 5).padding(.vertical, 1)
                                     .background((selected ? Theme.violet : Theme.textTertiary).opacity(0.18), in: Capsule())
                             }
@@ -282,9 +282,12 @@ struct CodeBlock: View {
     let text: String
     var maxHeight: CGFloat = 260
     var body: some View {
-        ScrollView([.vertical, .horizontal]) {
-            Text(text).font(Theme.Font.monoSmall).foregroundStyle(Theme.text).textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading).padding(Theme.Space.m)
+        ScrollView(.vertical) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(text).font(Theme.Font.monoSmall).foregroundStyle(Theme.text).textSelection(.enabled)
+                    .fixedSize(horizontal: true, vertical: true).padding(Theme.Space.m)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxHeight: maxHeight)
         .background(Theme.surfaceSunken, in: RoundedRectangle(cornerRadius: Theme.Radius.s, style: .continuous))

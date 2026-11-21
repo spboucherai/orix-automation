@@ -79,14 +79,17 @@ public enum AgendaBuilder {
         return (out, truncated)
     }
 
-    /// "09:00" in the schedule's zone, with the local time added when the two differ.
-    public static func timeLabel(_ date: Date, zone: String?, local: TimeZone = .current) -> String {
-        let f = DateFormatter(); f.locale = Locale(identifier: "en_GB"); f.dateFormat = "HH:mm"
-        f.timeZone = local
-        let here = f.string(from: date)
-        guard let zone, let tz = TimeZone(identifier: zone), tz.secondsFromGMT(for: date) != local.secondsFromGMT(for: date) else { return here }
-        f.timeZone = tz
-        return String(localized: "\(f.string(from: date)) there · \(here) here")
+    /// "09:00": the wall-clock time of an instant in a zone (24-hour, so columns line up).
+    public static func clock(_ date: Date, in zone: TimeZone = .current) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_GB"); f.dateFormat = "HH:mm"; f.timeZone = zone
+        return f.string(from: date)
+    }
+
+    /// The schedule's own zone when its clock differs from the local one at that instant; nil when they agree.
+    public static func foreignZone(_ item: AgendaItem, local: TimeZone = .current) -> TimeZone? {
+        guard let id = item.timezone, let tz = TimeZone(identifier: id), let first = item.times.first,
+              tz.secondsFromGMT(for: first) != local.secondsFromGMT(for: first) else { return nil }
+        return tz
     }
 }
 

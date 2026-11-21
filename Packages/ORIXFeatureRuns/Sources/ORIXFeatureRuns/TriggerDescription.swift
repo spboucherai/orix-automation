@@ -10,8 +10,11 @@ import ORIXAppUI
 
 /// Plain-language descriptions of triggers and policies. Pure functions: the same input always gives the same sentence.
 public enum TriggerDescriber {
+    /// The language the app is shown in (not the system region), so day and month names match the sentence around them.
+    public static var appLocale: Locale { Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en") }
+
     /// A sentence such as "Every Monday at 09:00 (America/Toronto)" or "When files change in ~/Documents/Research".
-    public static func describe(_ trigger: TriggerSpec, locale: Locale = .current) -> String {
+    public static func describe(_ trigger: TriggerSpec, locale: Locale = TriggerDescriber.appLocale) -> String {
         switch trigger {
         case .cron(let expression, let timezone):
             let zone = timezone ?? String(localized: "this Mac's time zone")
@@ -138,7 +141,7 @@ public enum TriggerDescriber {
     }
 
     /// A sentence for a 5-field cron expression (or macro), without the time zone. Nil when the expression is not valid.
-    public static func describeCron(_ expression: String, locale: Locale = .current) -> String? {
+    public static func describeCron(_ expression: String, locale: Locale = TriggerDescriber.appLocale) -> String? {
         guard (try? CronExpression(expression)) != nil else { return nil }
         let trimmed = expression.trimmingCharacters(in: .whitespaces)
         let source = macros[trimmed.lowercased()] ?? trimmed
@@ -203,7 +206,7 @@ public enum TriggerDescriber {
         case .step(let n): day = String(localized: "\(day), every \(n) months")
         }
         if everyDay, periodic, month == .any { return time.prefix(1).uppercased() + time.dropFirst() }
-        return String(localized: "\(day) \(time)")
+        return periodic ? String(localized: "\(day), \(time)") : String(localized: "\(day) \(time)")
     }
 
     static func isContiguous(_ v: [Int]) -> Bool { v.count > 1 && v.last! - v.first! == v.count - 1 }

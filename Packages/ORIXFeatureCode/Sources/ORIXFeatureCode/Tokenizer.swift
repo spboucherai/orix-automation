@@ -24,10 +24,7 @@ public enum CodeLanguage: String, Sendable, CaseIterable, Identifiable, Codable 
 
     /// Soft-tab width: 2 for data formats, 4 for programming languages.
     public var indentWidth: Int {
-        switch self {
-        case .yaml, .json, .bash, .javascript: return self == .yaml || self == .json ? 2 : 4
-        default: return 4
-        }
+        self == .yaml || self == .json ? 2 : 4
     }
 
     /// Prefix used by "toggle comment". JSON has no comments.
@@ -605,8 +602,8 @@ public enum SyntaxTokenizer {
                 if k > i, sc.at(k) == Ch.dq || sc.at(k) == Ch.sq { quoteAt = k }
             }
             let q = sc.at(quoteAt)
-            if spec.quotes.contains(q), quoteAt == i || quoteAt > i {
-                if quoteAt == i || spec.stringPrefixes {
+            if spec.quotes.contains(q) {
+                do {
                     let isRawPrefix = quoteAt > i && (i..<quoteAt).contains { sc.c[$0] == 114 || sc.c[$0] == 82 }
                     if spec.tripleQuotes, sc.at(quoteAt + 1) == q, sc.at(quoteAt + 2) == q {
                         let d = [q, q, q]

@@ -174,8 +174,22 @@ enum ArgumentForm {
     /// The first schema violation of a literal value, as a sentence; nil when it fits (expressions are not checked here).
     static func violation(_ value: JSONValue, field: SchemaField) -> String? {
         if case .string(let s) = value, isExpression(s) { return nil }
-        guard let first = JSONSchema(raw: field.schema).validate(value).first else { return nil }
-        return first.description
+        if let first = JSONSchema(raw: field.schema).validate(value).first { return first.description }
+        return textProblem(value, schema: field.schema)
+    }
+
+    /// Length and pattern rules of a text property, checked here so the message appears next to the field.
+    static func textProblem(_ value: JSONValue, schema: JSONValue) -> String? {
+        if case .array(let items) = value {
+            if let min = schema["minItems"]?.intValue, items.count < min { return min == 1 ? String(localized: "Add at least one item.") : String(localized: "Add at least \(min) items.") }
+            return nil
+        }
+        guard case .string(let s) = value else { return nil }
+        if let min = schema["minLength"]?.intValue, s.count < min { return min == 1 ? String(localized: "This cannot be empty.") : String(localized: "Use at least \(min) characters.") }
+        if let max = schema["maxLength"]?.intValue, s.count > max { return String(localized: "Use at most \(max) characters.") }
+        if let pattern = schema["pattern"]?.stringValue, let re = try? NSRegularExpression(pattern: pattern),
+           re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) == nil { return String(localized: "This does not have the expected form (\(pattern)).") }
+        return nil
     }
 
     // MARK: Stubs
@@ -185,11 +199,16 @@ enum ArgumentForm {
         if let d = schema["default"], !d.isNull { return d }
         switch kind(of: schema) {
         case .enumeration(let values): return .string(values[0])
-        case .string: return .string("")
+        case .string:
+            // The shortest text that passes the property's length and pattern rules; "?" marks a value to fill in.
+            for candidate in ["", "?", "example", "newItem", "a1", "item-1", "0", "~/"] where textProblem(.string(candidate), schema: schema) == nil { return .string(candidate) }
+            return .string("")
         case .integer: return .int(schema["minimum"]?.intValue ?? 0)
         case .number: return schema["minimum"].flatMap { $0.doubleValue }.map { normalized(.number($0)) } ?? .int(0)
         case .boolean: return .bool(false)
-        case .array: return .array([])
+        case .array:
+            let count = max(0, schema["minItems"]?.intValue ?? 0)
+            return .array((0..<count).map { _ in stubValue(schema["items"] ?? .object(["type": "string"])) })
         case .object:
             var out: [String: JSONValue] = [:]
             let props = schema["properties"]?.objectValue ?? [:]

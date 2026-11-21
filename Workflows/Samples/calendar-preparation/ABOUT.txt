@@ -1,0 +1,7 @@
+ORIX OS Automation — sample data of "Calendar-based preparation"
+Author: Simon-Pierre Boucher — contact@spboucher.ai
+
+The workflow reads the real Calendar app, so there is no input file to copy.
+sample-events.ics holds two synthetic events (23 and 24 November 2026). To try the workflow on known data, import the
+file into a calendar of your choice (Calendar › File › Import…), adjust the dates if needed, run the workflow with a
+`daysAhead` that covers them, then delete the imported events yourself. The workflow never creates, changes or deletes events.

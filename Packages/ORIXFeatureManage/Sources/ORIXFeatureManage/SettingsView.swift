@@ -39,10 +39,12 @@ public struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var tab: SettingsTab
 
+    private var expandCatalogFor: ProviderID?
+
     public init() { _tab = State(initialValue: .providers) }
 
     /// Opens on a given pane. Used by the preview harness and by deep links from other sections.
-    public init(tab: SettingsTab) { _tab = State(initialValue: tab) }
+    public init(tab: SettingsTab, expandCatalogFor provider: ProviderID? = nil) { _tab = State(initialValue: tab); expandCatalogFor = provider }
 
     public var body: some View {
         HStack(spacing: 0) {
@@ -50,7 +52,7 @@ public struct SettingsView: View {
             Divider()
             Group {
                 switch tab {
-                case .providers: ProvidersPane()
+                case .providers: ProvidersPane(expandCatalogFor: expandCatalogFor)
                 case .general: GeneralPane()
                 case .privacy: PrivacyPane()
                 case .storage: StoragePane()
@@ -308,7 +310,7 @@ struct DiagnosticsPane: View {
             PageHeader("Diagnostics", subtitle: "What this installation is made of. Nothing here is a secret.") {
                 Button {
                     if let report { FilePanels.copy(report.text); copied = true }
-                } label: { Label(copied ? "Copied" : "Copy diagnostics", systemImage: copied ? "checkmark" : "doc.on.doc") }
+                } label: { Label(copied ? LocalizedStringKey("Copied") : LocalizedStringKey("Copy diagnostics"), systemImage: copied ? "checkmark" : "doc.on.doc") }
                     .buttonStyle(SecondaryButtonStyle()).disabled(report == nil).accessibilityIdentifier("settings.diagnostics.copy")
             }
             if let report {

@@ -619,6 +619,7 @@ final class AgentLoop {
         var verifications = task.expectations.map { Verifier.check($0, workingDirectory: workDir) }
         var roots = [workDir.path, artifactsDir.path]
         roots += artifacts.map { ($0.path as NSString).deletingLastPathComponent }
+        roots += Verifier.writtenFolders(records, workingDirectory: workDir)
         var verifiedArtifacts = artifacts
         for claim in claimedArtifacts.prefix(50) {
             let (v, a) = Verifier.checkClaimedArtifact(claim, workingDirectory: workDir, allowedRoots: roots)

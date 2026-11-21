@@ -73,7 +73,7 @@ spec:
       tool: filesystem.write
       with:
         path: ${{ params.stateFolder }}/current.html
-        content: ${{ steps.fetch.output.body }}
+        content: ${{ default(steps.fetch.output.body, "") }}
         overwrite: true
     - id: findPrevious
       name: Is there a previous copy?

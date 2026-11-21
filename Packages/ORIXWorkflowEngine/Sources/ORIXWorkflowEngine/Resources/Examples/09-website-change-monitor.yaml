@@ -1,18 +1,23 @@
 # ORIX OS Automation
 # File: Workflows/Examples/09-website-change-monitor.yaml
-# Description: Built-in automation: fetches one approved web page on a schedule and notifies when its content changed.
+# Description: Built-in automation: fetches one page from one approved host, compares it with the previous copy and alerts on a change.
 #
 # Author: Simon-Pierre Boucher
 # Contact: contact@spboucher.ai
 #
 # Limitations
-# - Only the host listed in permissions.network may be contacted; keep it in sync with the `url` parameter.
+# - Only the host named by the `host` parameter may be contacted: it is the declared network permission. A `url` on
+#   another host is not covered by the accepted permission and waits for approval instead of being fetched.
+# - HTTPS only; plain http is accepted for this Mac's loopback addresses (localhost, 127.0.0.1), which is how the
+#   example is tested. Redirects to another host are followed by the tool only inside its own rules.
 # - One plain GET per run, no login, no JavaScript: pages rendered client-side or behind authentication are not supported.
-# - "Changed" is a byte comparison of the response body with the previous one: rotating ads, timestamps or tokens count as changes.
+# - "Changed" is a byte comparison of the saved response body with the previous one: rotating ads, timestamps or tokens
+#   count as changes. Bodies larger than 2 MB are truncated before the comparison.
 # - Respect the site's terms and robots policy; the default interval is one hour on purpose.
 # - The page body is untrusted content: it is stored and compared, never interpreted.
-# - The GET is retried (retry.force) because repeating it has no side effect; argument names and output fields
-#   (status, body, identical) are to be reconciled with the real http and filesystem tools.
+# - The GET is retried (retry.force) because repeating it has no side effect.
+# - The alert is a notification: it needs the ORIX app (a command-line run has no application bundle). There the alert
+#   step fails by itself, the run ends PARTIALLY_SUCCEEDED and the `changed` output still says what happened.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
@@ -28,10 +33,14 @@ spec:
       seconds: 3600
     - type: manual
   parameters:
+    - name: host
+      type: string
+      default: example.com
+      description: The only host this workflow may contact; it is the declared network permission.
     - name: url
       type: string
-      default: https://example.com/
-      description: Page to watch. Its host must be listed in permissions.network.
+      default: https://${{ params.host }}/
+      description: Page to watch, on that host.
     - name: stateFolder
       type: path
       default: ~/ORIX Samples/website-change-monitor/State
@@ -40,7 +49,7 @@ spec:
     filesystem:
       read: ["${{ params.stateFolder }}"]
       write: ["${{ params.stateFolder }}"]
-    network: [example.com]
+    network: ["${{ params.host }}"]
     notifications: true
   budget:
     maxDurationSeconds: 180
@@ -64,54 +73,59 @@ spec:
       tool: filesystem.write
       with:
         path: ${{ params.stateFolder }}/current.html
-        content: ${{ steps.fetch.output.body }}
+        content: ${{ default(steps.fetch.output.body, "") }}
         overwrite: true
-    - id: existing
-      needs: [saveCurrent]
-      tool: filesystem.list
+    - id: findPrevious
+      name: Is there a previous copy?
+      needs: [prepare]
+      tool: filesystem.search
       with:
         path: ${{ params.stateFolder }}
-    - id: firstRun
-      name: Is there a previous copy?
-      needs: [existing]
-      if: ${{ count(steps.existing.output.entries, e => e.name == "previous.html") == 0 }}
-      then: [baseline]
-      else: [compare]
-    - id: baseline
-      name: First run, keep a baseline
-      tool: filesystem.copy
-      with:
-        source: ${{ params.stateFolder }}/current.html
-        destination: ${{ params.stateFolder }}/previous.html
-        overwrite: true
+        pattern: previous.html
+        maxDepth: 1
     - id: compare
-      tool: filesystem.compare
-      with:
-        source: ${{ params.stateFolder }}/previous.html
-        destination: ${{ params.stateFolder }}/current.html
+      name: Compare with the previous copy (when there is one)
+      needs: [findPrevious, saveCurrent]
+      foreach: ${{ steps.findPrevious.output.matches }}
+      as: previous
+      collect: diff
+      steps:
+        - id: diff
+          tool: filesystem.compare
+          with:
+            source: ${{ previous.path }}
+            destination: ${{ params.stateFolder }}/current.html
     - id: changed
-      name: Did the page change?
       needs: [compare]
-      if: ${{ !steps.compare.output.identical }}
-      then: [alert, promote]
-    - id: alert
-      notify: ${{ params.url }} changed since the last check.
-      title: Website change
+      transform: ${{ steps.compare.output.count > 0 && !first(steps.compare.output.results).identical }}
     - id: promote
       name: The new copy becomes the reference
+      needs: [compare]
       tool: filesystem.copy
       with:
         source: ${{ params.stateFolder }}/current.html
         destination: ${{ params.stateFolder }}/previous.html
         overwrite: true
     - id: check
-      needs: [saveCurrent]
+      needs: [saveCurrent, promote]
       verify:
         - equals: ["${{ steps.fetch.output.status }}", 200]
         - fileNonEmpty: ${{ params.stateFolder }}/current.html
+        - fileNonEmpty: ${{ params.stateFolder }}/previous.html
     - id: result
-      needs: [check, firstRun]
+      needs: [check, changed]
       output:
         url: ${{ params.url }}
         status: ${{ steps.fetch.output.status }}
-        firstRun: ${{ steps.firstRun.output.result }}
+        firstRun: ${{ steps.compare.output.count == 0 }}
+        changed: ${{ steps.changed.output }}
+        sha256: ${{ steps.saveCurrent.output.sha256 }}
+    - id: onChange
+      name: Did the page change?
+      needs: [result]
+      if: ${{ steps.changed.output }}
+      then: [alert]
+    - id: alert
+      notify: ${{ params.url }} changed since the last check.
+      title: Website change
+      continueOnError: true

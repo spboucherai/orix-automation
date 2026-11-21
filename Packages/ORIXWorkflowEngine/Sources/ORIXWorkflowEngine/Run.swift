@@ -470,7 +470,15 @@ public actor WorkflowRun {
         var running = 0
         await withTaskGroup(of: StepResult?.self) { group in
             while true {
-                if failure == nil, halt == nil {
+                // A step's result is stored before its task is handed back by the group (the checkpoint save in between
+                // suspends). Look at the stored results too, so that a failure which is already recorded stops the list
+                // now, instead of first letting its dependents be marked "skipped" when another task happens to return
+                // earlier. Without this the same failed run sometimes listed those dependents and sometimes did not.
+                let failureRecorded = steps.contains { s in
+                    guard let r = results[scope.prefix + s.id] else { return false }
+                    return !r.status.isSuccess && r.status != .skipped && !r.continued
+                }
+                if failure == nil, !failureRecorded, halt == nil {
                     var progressed = true
                     while progressed {
                         progressed = false

@@ -1,6 +1,6 @@
 # ORIX OS Automation
 # File: Workflows/Examples/05-csv-cleanup-and-charts.yaml
-# Description: Built-in automation: cleans a CSV file with a confined Python script and draws a bar chart of its first numeric column.
+# Description: Built-in automation: cleans a CSV file with a small Python script and draws an SVG bar chart of its first numeric column.
 #
 # Author: Simon-Pierre Boucher
 # Contact: contact@spboucher.ai
@@ -9,9 +9,11 @@
 # - The Python script uses the standard library only (no pandas, no matplotlib): the chart is a simple SVG bar chart
 #   of the first column whose values are all numeric, limited to the first 40 rows.
 # - Cleaning means: trim cells, drop empty rows, pad/cut rows to the header width, drop exact duplicate rows. Nothing smarter.
-# - The script runs confined: it can read the input file and write the output folder, and has no network.
-# - Needs a Python 3 runtime approved for ORIX (python.run); system Python is never modified.
-# - Argument names (script, args) and the csvRead output (rowCount) are to be reconciled with the real tools.
+# - The script runs in a sandbox: it can read the input file and write the output folder, and has no network.
+# - python.run uses ORIX's own virtual environment, created on first use from a python3 found on this Mac (Xcode
+#   command-line tools or Homebrew). Without any python3 the step fails with that reason; system Python is never modified.
+#   The first run takes a few seconds longer while the environment is created.
+# - The input must be UTF-8 (a byte-order mark is accepted); the cleaned file is always comma-separated UTF-8.
 apiVersion: orix.ai/v1
 kind: Automation
 metadata:
@@ -39,7 +41,7 @@ spec:
       write: ["${{ params.outputFolder }}"]
     scripts: [python]
   budget:
-    maxDurationSeconds: 300
+    maxDurationSeconds: 600
     maxToolCalls: 20
   steps:
     - id: inspect
@@ -47,7 +49,8 @@ spec:
       tool: documents.csvRead
       with:
         path: ${{ params.inputFile }}
-        maxRows: 5
+        header: "yes"
+        limit: 5
     - id: prepare
       tool: filesystem.mkdir
       with:
@@ -58,8 +61,9 @@ spec:
       tool: python.run
       with:
         args: ["${{ params.inputFile }}", "${{ params.outputFolder }}"]
-        timeoutSeconds: 120
-        script: |
+        cwd: ${{ params.outputFolder }}
+        timeoutSeconds: 300
+        code: |
           import csv, os, sys
 
           src = os.path.expanduser(sys.argv[1])
@@ -103,28 +107,33 @@ spec:
           with open(os.path.join(out, "chart.svg"), "w", encoding="utf-8") as f:
               f.write("\n".join(parts))
 
-          print("rows_in=%d rows_out=%d charted_column=%s" % (len(body), len(clean), title))
+          print("rows_in=%d rows_out=%d charted_column=%s bars=%d" % (len(body), len(clean), title, len(points)))
     - id: cleaned
       name: Read the cleaned file back
       needs: [clean]
       tool: documents.csvRead
       with:
         path: ${{ params.outputFolder }}/cleaned.csv
-        maxRows: 5
+        header: "yes"
+        limit: 5
     - id: check
       needs: [cleaned]
       verify:
+        - equals: ["${{ steps.clean.output.exitCode }}", 0]
         - fileNonEmpty: ${{ params.outputFolder }}/cleaned.csv
         - fileContains: ${{ params.outputFolder }}/chart.svg
           text: <svg
-        - truthy: ${{ steps.cleaned.output.rowCount > 0 }}
+        - truthy: ${{ steps.cleaned.output.totalRows > 0 }}
+        - truthy: ${{ steps.cleaned.output.totalRows <= steps.inspect.output.totalRows }}
     - id: result
       needs: [check]
       output:
         cleaned: ${{ params.outputFolder }}/cleaned.csv
         chart: ${{ params.outputFolder }}/chart.svg
-        rows: ${{ steps.cleaned.output.rowCount }}
-        log: ${{ steps.clean.output.stdout }}
+        rowsBefore: ${{ steps.inspect.output.totalRows }}
+        rows: ${{ steps.cleaned.output.totalRows }}
+        columns: ${{ steps.cleaned.output.columns }}
+        log: ${{ trim(default(steps.clean.output.stdout, "")) }}
       artifacts:
         - ${{ params.outputFolder }}/cleaned.csv
         - ${{ params.outputFolder }}/chart.svg

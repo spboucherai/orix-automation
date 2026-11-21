@@ -115,7 +115,7 @@ enum GraphRenderer {
         let zoom = vp.zoom
         let visible = vp.visibleWorld(in: size).insetBy(dx: -40, dy: -40)
         let showText = zoom >= 0.22
-        let showDetail = zoom >= 0.42
+        let showDetail = zoom >= 0.38
 
         if scene.interactive, zoom >= 0.5 {
             // Dot grid, in screen space so the dots stay one point wide.

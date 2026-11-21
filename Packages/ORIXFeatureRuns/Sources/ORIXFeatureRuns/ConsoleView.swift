@@ -59,6 +59,8 @@ public final class ConsoleModel {
     @ObservationIgnored private var assembler = ConsoleAssembler()
     @ObservationIgnored private var pending: [ConsoleAssembler.Entry] = []
     @ObservationIgnored private var lastSeq = 0
+    /// True while every line was added at the end (no late event inserted earlier): search can then be incremental.
+    @ObservationIgnored private var appendOnly = true
     @ObservationIgnored private var lastLiveAt = Date.distantPast
     @ObservationIgnored private var tasks: [Task<Void, Never>] = []
     @ObservationIgnored private var services: ORIXServices?
@@ -133,15 +135,33 @@ public final class ConsoleModel {
     /// Moves pending lines into the buffer and updates what the view shows. At most once per tick while streaming.
     public func flush() {
         guard !pending.isEmpty else { return }
+        let lastTime = buffer.lines.last?.time ?? .distantPast
+        let lastID = buffer.lines.last?.id ?? -1
+        let inOrder = pending.allSatisfy { $0.time >= lastTime }
         buffer.append(contentsOf: pending)
         pending.removeAll(keepingCapacity: true)
-        recompute()
+        if !inOrder { appendOnly = false }
+        recompute(newerThan: appendOnly && !query.isEmpty ? lastID : nil)
     }
 
-    private func recompute() {
+    /// `newerThan`: when lines were only added at the end, search just those instead of the whole buffer.
+    private func recompute(newerThan lastID: Int? = nil) {
         visible = buffer.visible(levels: levels)
         let kept = currentMatchID
-        matches = buffer.search(query, levels: levels)
+        if let lastID {
+            let firstID = buffer.lines.first?.id ?? 0
+            if let cut = matches.firstIndex(where: { $0 >= firstID }) { matches.removeFirst(cut) } else { matches.removeAll() }
+            var fresh: [Int] = []
+            if let matcher = ConsoleBuffer.Matcher(query) {
+                for line in buffer.lines.reversed() {
+                    guard line.id > lastID else { break }
+                    if levels.contains(line.level), matcher.matches(line.text) { fresh.append(line.id) }
+                }
+            }
+            matches.append(contentsOf: fresh.reversed())
+        } else {
+            matches = buffer.search(query, levels: levels)
+        }
         matchSet = Set(matches)
         if let kept, let i = matches.firstIndex(of: kept) { currentMatch = i }
         else if matches.isEmpty { currentMatch = nil }
@@ -153,7 +173,7 @@ public final class ConsoleModel {
     public func previousMatch() { guard !matches.isEmpty else { return }; currentMatch = ((currentMatch ?? matches.count) - 1 + matches.count) % matches.count; follow = false }
 
     /// Empties the view only: recorded events stay in the run's timeline.
-    public func clear() { pending = []; buffer.clear(); recompute() }
+    public func clear() { pending = []; buffer.clear(); appendOnly = true; recompute() }
 
     /// The selected lines in order, or everything shown when nothing is selected.
     public func text(selection: Set<Int>) -> String {
@@ -199,9 +219,10 @@ struct ConsoleSurface: View {
         .background(Theme.surfaceSunken)
         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.m, style: .continuous).strokeBorder(Theme.stroke))
+        .onAppear { searchText = console.query }
         .task(id: searchText) {
             try? await Task.sleep(nanoseconds: 200_000_000)
-            if !Task.isCancelled { console.query = searchText }
+            if !Task.isCancelled, console.query != searchText { console.query = searchText }
         }
     }
 
@@ -265,39 +286,10 @@ struct ConsoleSurface: View {
         .background(Theme.surfaceRaised)
     }
 
-    private struct ScrollState: Equatable { var offset: CGFloat; var distanceToEnd: CGFloat }
-
     private var lines: some View {
-        ScrollViewReader { proxy in
-            List(selection: $selection) {
-                ForEach(console.visible) { line in
-                    ConsoleRow(line: line, query: console.matchSet.contains(line.id) ? console.query : "", isCurrent: console.currentMatchID == line.id)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 6, bottom: 0, trailing: 6))
-                        .listRowSeparator(.hidden)
-                        .id(line.id)
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .environment(\.defaultMinListRowHeight, 17)
-            .onCopyCommand { [NSItemProvider(object: console.text(selection: selection) as NSString)] }
-            .onScrollGeometryChange(for: ScrollState.self) { g in
-                ScrollState(offset: g.contentOffset.y, distanceToEnd: g.contentSize.height - g.contentOffset.y - g.containerSize.height)
-            } action: { old, new in
-                // Moving up, away from the end, is the user reading: stop following. Reaching the end resumes.
-                if new.offset < old.offset - 2, new.distanceToEnd > 60, console.follow { console.follow = false }
-                else if new.distanceToEnd < 4, new.offset > old.offset, !console.follow, console.currentMatch == nil || console.query.isEmpty { console.follow = true }
-            }
-            .onChange(of: console.version) { _, _ in
-                if console.follow, let last = console.visible.last { proxy.scrollTo(last.id, anchor: .bottom) }
-            }
-            .onChange(of: console.follow) { _, on in
-                if on, let last = console.visible.last { proxy.scrollTo(last.id, anchor: .bottom) }
-            }
-            .onChange(of: console.currentMatchID) { _, id in
-                if let id, !console.follow { proxy.scrollTo(id, anchor: .center) }
-            }
-            .onAppear { if let last = console.visible.last { proxy.scrollTo(last.id, anchor: .bottom) } }
+        ConsoleTable(console: console, version: console.version, follow: console.follow, currentMatchID: console.currentMatchID, selection: $selection) {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(console.text(selection: selection), forType: .string)
         }
         .overlay {
             if console.visible.isEmpty {
@@ -306,12 +298,12 @@ struct ConsoleSurface: View {
             }
         }
         .frame(minHeight: 120)
-        .accessibilityIdentifier("console.lines")
     }
 
     private var footer: some View {
         HStack(spacing: Theme.Space.m) {
             if console.isLive { HStack(spacing: 4) { PulseDot(color: Theme.blue, active: true); Text("Live") } }
+            else { Text("Recorded events only: program output is shown while a run is in progress and is not kept afterwards.").lineLimit(1) }
             Text("\(console.visible.count) lines shown")
             if console.visible.count != console.buffer.lines.count { Text("\(console.buffer.lines.count - console.visible.count) hidden by the filter") }
             if !selection.isEmpty { Text("\(selection.count) selected") }
@@ -321,37 +313,5 @@ struct ConsoleSurface: View {
         .font(Theme.Font.caption).foregroundStyle(Theme.textSecondary).monospacedDigit()
         .padding(.horizontal, Theme.Space.m).padding(.vertical, 5)
         .background(Theme.surfaceRaised)
-    }
-}
-
-struct ConsoleRow: View {
-    let line: ConsoleLine
-    /// Non-empty when this line matches the search.
-    let query: String
-    let isCurrent: Bool
-
-    private var highlighted: AttributedString {
-        var a = AttributedString(line.text)
-        guard !query.isEmpty else { return a }
-        var from = a.startIndex
-        while from < a.endIndex, let r = a[from...].range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) {
-            a[r].backgroundColor = Theme.warning.opacity(isCurrent ? 0.55 : 0.28)
-            a[r].underlineStyle = .single
-            from = r.upperBound
-        }
-        return a
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(verbatim: ConsoleBuffer.timestamp(line.time)).foregroundStyle(Theme.textTertiary)
-            Text(verbatim: line.level.tag).fontWeight(.semibold).foregroundStyle(line.level.tint).frame(width: 46, alignment: .leading)
-            Text(highlighted).foregroundStyle(line.level == .stderr || line.level == .error ? Theme.danger : Theme.text)
-                .lineLimit(12).frame(maxWidth: .infinity, alignment: .leading)
-            if isCurrent { Image(systemName: "arrowtriangle.left.fill").font(.system(size: 8)).foregroundStyle(Theme.warning).accessibilityLabel(Text("Current match")) }
-        }
-        .font(Theme.Font.monoSmall)
-        .padding(.vertical, 1)
-        .accessibilityElement(children: .combine)
     }
 }
