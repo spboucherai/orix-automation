@@ -1,3 +1,16 @@
+# =============================================================================
+# SP BOUCHER | SOURCE FILE
+# =============================================================================
+# Project      : ORIX OS Automation
+# File         : Packages/ORIXWorkflowEngine/Sources/ORIXWorkflowEngine/Resources/Examples/11-meeting-notes-organizer.yaml
+# Author       : Simon-Pierre Boucher | https://spboucher.ai
+# Contact      : support@spboucher.ai
+# Copyright    : (c) 2026 Simon-Pierre Boucher
+# License      : Proprietary, all rights reserved (see license file)
+# =============================================================================
+# END OF SP BOUCHER SOURCE HEADER
+# =============================================================================
+
 # ORIX OS Automation
 # File: Workflows/Examples/11-meeting-notes-organizer.yaml
 # Description: Built-in automation: an agent turns each transcript of a folder into notes, then an index of all notes is written.

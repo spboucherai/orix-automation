@@ -951,3 +951,15 @@ Do not pad progress with empty files, cosmetic demos, or unimplemented buttons. 
 Do not ask the product owner to repeat information already discoverable in authorized local configuration. Ask only when permission, an external credential authorization, a consequential action, or an architectural decision truly requires a human choice. Never mistake discoverability for permission to use a secret or perform an irreversible action.
 
 **ORIX OS Automation should feel like a powerful, trustworthy extension of macOS: the user defines the goal, the system carries out authorized work, and every result can be inspected and verified.**
+
+<!-- spb-source-governance:start -->
+## Source header policy (SP Boucher)
+
+When creating or modifying eligible first-party source files, follow the SP Boucher Source Header
+Policy. Preserve existing copyright and license notices, select the correct language-specific
+template, and avoid adding identifying information to anonymous academic submission artifacts.
+
+- Repository policy: `.spb-source-governance.toml` (project, contact, verified rights, license).
+- Add or refresh headers with `spb-header apply --repo .`; verify with `spb-header check --repo .`.
+- Never hand-write a header, never add one to generated, vendored, third-party or data files.
+<!-- spb-source-governance:end -->

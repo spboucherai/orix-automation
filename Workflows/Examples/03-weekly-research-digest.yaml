@@ -1,3 +1,16 @@
+# =============================================================================
+# SP BOUCHER | SOURCE FILE
+# =============================================================================
+# Project      : ORIX OS Automation
+# File         : Workflows/Examples/03-weekly-research-digest.yaml
+# Author       : Simon-Pierre Boucher | https://spboucher.ai
+# Contact      : support@spboucher.ai
+# Copyright    : (c) 2026 Simon-Pierre Boucher
+# License      : Proprietary, all rights reserved (see license file)
+# =============================================================================
+# END OF SP BOUCHER SOURCE HEADER
+# =============================================================================
+
 # ORIX OS Automation
 # File: Workflows/Examples/03-weekly-research-digest.yaml
 # Description: Built-in automation: a scheduled agent writes a digest of the documents of a local research folder.

@@ -1,3 +1,16 @@
+# =============================================================================
+# SP BOUCHER | SOURCE FILE
+# =============================================================================
+# Project      : ORIX OS Automation
+# File         : Packages/ORIXWorkflowEngine/Sources/ORIXWorkflowEngine/Resources/Examples/05-csv-cleanup-and-charts.yaml
+# Author       : Simon-Pierre Boucher | https://spboucher.ai
+# Contact      : support@spboucher.ai
+# Copyright    : (c) 2026 Simon-Pierre Boucher
+# License      : Proprietary, all rights reserved (see license file)
+# =============================================================================
+# END OF SP BOUCHER SOURCE HEADER
+# =============================================================================
+
 # ORIX OS Automation
 # File: Workflows/Examples/05-csv-cleanup-and-charts.yaml
 # Description: Built-in automation: cleans a CSV file with a small Python script and draws an SVG bar chart of its first numeric column.

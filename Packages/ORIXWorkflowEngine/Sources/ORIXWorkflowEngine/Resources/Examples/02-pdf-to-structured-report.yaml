@@ -1,3 +1,16 @@
+# =============================================================================
+# SP BOUCHER | SOURCE FILE
+# =============================================================================
+# Project      : ORIX OS Automation
+# File         : Packages/ORIXWorkflowEngine/Sources/ORIXWorkflowEngine/Resources/Examples/02-pdf-to-structured-report.yaml
+# Author       : Simon-Pierre Boucher | https://spboucher.ai
+# Contact      : support@spboucher.ai
+# Copyright    : (c) 2026 Simon-Pierre Boucher
+# License      : Proprietary, all rights reserved (see license file)
+# =============================================================================
+# END OF SP BOUCHER SOURCE HEADER
+# =============================================================================
+
 # ORIX OS Automation
 # File: Workflows/Examples/02-pdf-to-structured-report.yaml
 # Description: Built-in automation: extracts metadata and text statistics from the PDFs of a folder into a CSV and a PDF report.

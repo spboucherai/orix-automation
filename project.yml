@@ -1,9 +1,16 @@
-# ORIX OS Automation
-# File: project.yml
-# Description: XcodeGen project definition (macOS app + UI tests). All logic lives in Packages/.
-#
-# Author: Simon-Pierre Boucher
-# Contact: contact@spboucher.ai
+# =============================================================================
+# SP BOUCHER | SOURCE FILE
+# =============================================================================
+# Project      : ORIX OS Automation
+# File         : project.yml
+# Author       : Simon-Pierre Boucher | https://spboucher.ai
+# Contact      : support@spboucher.ai
+# Copyright    : (c) 2026 Simon-Pierre Boucher
+# License      : Proprietary, all rights reserved (see license file)
+# =============================================================================
+# END OF SP BOUCHER SOURCE HEADER
+# =============================================================================
+
 name: ORIXAutomation
 options:
   bundleIdPrefix: ai.spboucher.orix

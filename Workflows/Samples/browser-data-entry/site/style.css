@@ -1,10 +1,18 @@
-/*
- * ORIX OS Automation
- * File: Workflows/Samples/browser-data-entry/site/style.css
- * Description: Minimal styling of the static test site of the browser data-entry example.
- * Author: Simon-Pierre Boucher
- * Contact: contact@spboucher.ai
+/**
+ * =============================================================================
+ * SP BOUCHER | SOURCE FILE
+ * =============================================================================
+ * Project      : ORIX OS Automation
+ * File         : Workflows/Samples/browser-data-entry/site/style.css
+ * Author       : Simon-Pierre Boucher | https://spboucher.ai
+ * Contact      : support@spboucher.ai
+ * Copyright    : (c) 2026 Simon-Pierre Boucher
+ * License      : Proprietary, all rights reserved (see license file)
+ * =============================================================================
+ * END OF SP BOUCHER SOURCE HEADER
+ * =============================================================================
  */
+
 body { font: 16px/1.5 -apple-system, Helvetica, sans-serif; margin: 0; background: #f4f3fb; color: #1d1b2f; }
 main { max-width: 28rem; margin: 3rem auto; padding: 2rem; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(40, 30, 120, 0.12); }
 label { display: block; margin-top: 1rem; font-weight: 600; }
