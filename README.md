@@ -4,11 +4,42 @@ File: README.md
 Author: Simon-Pierre Boucher
 Contact: contact@spboucher.ai
 -->
+<div align="center">
+
+<img src="docs/assets/icon.png" alt="ORIX OS Automation icon" width="168" height="168">
+
 # ORIX OS Automation
 
-A native macOS app that carries out work on your Mac from a stated objective. It plans, asks before anything that
-matters, acts through real tools, and checks the result itself. No account, no server: you bring your own model
-key, and everything else stays on the Mac.
+**State the goal. Approve what matters. Verify the result.**
+
+A native macOS app that carries out work on your Mac from a stated objective. It plans, asks before anything that<br>
+matters, acts through real tools, and checks the result itself. No account, no server: you bring your own model key,<br>
+and everything else stays on the Mac.
+
+**Author: [Simon-Pierre Boucher](https://www.spboucher.ai)**
+
+![macOS](https://img.shields.io/badge/macOS-15%2B-007AFF?style=for-the-badge&logo=apple&logoColor=white)
+![Universal](https://img.shields.io/badge/Universal-arm64%20%C2%B7%20x86__64-6366F1?style=for-the-badge)
+![Swift](https://img.shields.io/badge/Swift-6-FA7343?style=for-the-badge&logo=swift&logoColor=white)
+![SwiftUI](https://img.shields.io/badge/UI-SwiftUI%20%2B%20AppKit-8B5CF6?style=for-the-badge)
+![BYOK](https://img.shields.io/badge/Models-Bring%20your%20own%20key-06B6D4?style=for-the-badge)
+![Privacy](https://img.shields.io/badge/Data-Local%20Only-22C55E?style=for-the-badge)
+![Accounts](https://img.shields.io/badge/Accounts-Not%20Required-14B8A6?style=for-the-badge)
+
+![Version](https://img.shields.io/badge/version-1.0.0%20(1)-F59E0B?style=flat-square)
+![Package tests](https://img.shields.io/badge/package%20tests-789%20passed-22C55E?style=flat-square)
+![UI tests](https://img.shields.io/badge/UI%20tests-2%20passed-22C55E?style=flat-square)
+![Notarization](https://img.shields.io/badge/notarization-Accepted%20by%20Apple-6366F1?style=flat-square)
+![Gatekeeper](https://img.shields.io/badge/Gatekeeper-Notarized%20Developer%20ID-6366F1?style=flat-square)
+![DMG](https://img.shields.io/badge/DMG-18%20MB-6366F1?style=flat-square)
+![Dependencies](https://img.shields.io/badge/third--party%20dependencies-0-22C55E?style=flat-square)
+![Entitlements](https://img.shields.io/badge/entitlements-Apple%20Events%20only-22C55E?style=flat-square)
+![Languages](https://img.shields.io/badge/languages-English%20%C2%B7%20Fran%C3%A7ais%20(Canada)-06B6D4?style=flat-square)
+![License](https://img.shields.io/badge/license-All%20rights%20reserved-64748B?style=flat-square)
+
+**[Download ORIX OS Automation 1.0.0 (DMG)](https://git.spboucher.ai/releases/orix-automation/v1.0.0/ORIX-OS-Automation-1.0.0.dmg)** · [All releases](https://git.spboucher.ai/orix-automation/releases)
+
+</div>
 
 ![Runs: real execution history](docs/screenshots/runs.png)
 
