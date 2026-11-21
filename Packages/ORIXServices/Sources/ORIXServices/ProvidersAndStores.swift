@@ -91,13 +91,21 @@ public actor ProviderHub: ProviderResolving {
     }
 
     /// One minimal request (at most 8 output tokens) to confirm the key and model work.
-    public func test(_ ref: ModelRef) async -> ProviderHealthResult {
-        do { return await ProviderHealth.check(provider: try await provider(for: ref.provider), model: ref.model) }
-        catch {
-            return ProviderHealthResult(provider: ref.provider, model: ref.model, ok: false, latencyMs: 0, firstEventMs: nil, usage: nil,
-                                        error: error as? LLMError, message: (error as? LLMError)?.errorDescription ?? error.localizedDescription)
+    public func test(_ ref: ModelRef) async -> ProviderTestResult {
+        do {
+            let r = await ProviderHealth.check(provider: try await provider(for: ref.provider), model: ref.model)
+            return ProviderTestResult(model: ref, ok: r.ok, latencyMs: r.latencyMs, message: r.message ?? r.error?.errorDescription)
+        } catch {
+            return ProviderTestResult(model: ref, ok: false, latencyMs: 0, message: (error as? LLMError)?.errorDescription ?? error.localizedDescription)
         }
     }
+}
+
+public struct ProviderTestResult: Sendable, Hashable {
+    public var model: ModelRef
+    public var ok: Bool
+    public var latencyMs: Int
+    public var message: String?
 }
 
 public struct AppSettings: Codable, Sendable, Hashable {

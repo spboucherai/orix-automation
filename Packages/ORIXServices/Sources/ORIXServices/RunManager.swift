@@ -166,7 +166,7 @@ public actor RunManager {
         let runID = UUID().uuidString
         let workDir = try await grantWorkspace(req.mode == .review && req.workspaceAccess == .readWrite ? .read : req.workspaceAccess,
                                                directory: req.workingDirectory, runID: runID)
-        var record = RunRecord(id: runID, kind: "agent", title: req.title ?? String(req.objective.prefix(80)), sessionID: req.sessionID,
+        let record = RunRecord(id: runID, kind: "agent", title: req.title ?? String(req.objective.prefix(80)), sessionID: req.sessionID,
                                trigger: req.trigger, mode: req.mode, status: .running, model: profile.model, startedAt: Date())
         try await store.saveRun(record)
 
@@ -183,11 +183,11 @@ public actor RunManager {
         let observer = makeObserver(runID)
         let frozenProfile = profile
         let sessionID = req.sessionID
+        let snapshot = record
         tasks[runID] = Task { [self] in
             let result = await runtime.execute(task: task, profile: frozenProfile, runID: runID, history: history, control: control, observer: observer)
             if let sessionID { try? await store.put(SessionTranscript(messages: Self.trimmed(result.messages)), collection: Collections.sessionMessages, id: sessionID) }
-            record = await finalize(record, status: result.outcome.status, usage: result.outcome.usage, error: result.outcome.errorSummary, receipt: result.receipt)
-            return record
+            return await finalize(snapshot, status: result.outcome.status, usage: result.outcome.usage, error: result.outcome.errorSummary, receipt: result.receipt)
         }
         return runID
     }
@@ -259,10 +259,10 @@ public actor RunManager {
         let control = RunControl(); controls[runID] = control
         let observer = makeObserver(runID)
         let frozen = task
+        let snapshot = record
         tasks[runID] = Task { [self] in
             let result = await runtime.execute(task: frozen, profile: cp.profile, runID: runID, control: control, observer: observer, resumeFrom: cp, inFlight: resolution)
-            record = await finalize(record, status: result.outcome.status, usage: result.outcome.usage, error: result.outcome.errorSummary, receipt: result.receipt)
-            return record
+            return await finalize(snapshot, status: result.outcome.status, usage: result.outcome.usage, error: result.outcome.errorSummary, receipt: result.receipt)
         }
     }
 
