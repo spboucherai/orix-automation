@@ -1,0 +1,130 @@
+# ORIX OS Automation
+# File: Workflows/Examples/05-csv-cleanup-and-charts.yaml
+# Description: Built-in automation: cleans a CSV file with a confined Python script and draws a bar chart of its first numeric column.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - The Python script uses the standard library only (no pandas, no matplotlib): the chart is a simple SVG bar chart
+#   of the first column whose values are all numeric, limited to the first 40 rows.
+# - Cleaning means: trim cells, drop empty rows, pad/cut rows to the header width, drop exact duplicate rows. Nothing smarter.
+# - The script runs confined: it can read the input file and write the output folder, and has no network.
+# - Needs a Python 3 runtime approved for ORIX (python.run); system Python is never modified.
+# - Argument names (script, args) and the csvRead output (rowCount) are to be reconciled with the real tools.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: csv-cleanup-and-charts
+  name: CSV cleanup and chart generation
+  description: >-
+    Cleans a CSV file (trimmed cells, no empty or duplicate rows, consistent width) with a small Python
+    script and draws an SVG bar chart of its first numeric column, then checks both files.
+  tags: [csv, python, chart, data]
+spec:
+  triggers:
+    - type: manual
+  parameters:
+    - name: inputFile
+      type: path
+      default: ~/ORIX Samples/csv-cleanup-and-charts/input.csv
+      description: CSV file to clean (first row is the header).
+    - name: outputFolder
+      type: path
+      default: ~/ORIX Samples/csv-cleanup-and-charts/Output
+      description: Folder that receives cleaned.csv and chart.svg.
+  permissions:
+    filesystem:
+      read: ["${{ params.inputFile }}", "${{ params.outputFolder }}"]
+      write: ["${{ params.outputFolder }}"]
+    scripts: [python]
+  budget:
+    maxDurationSeconds: 300
+    maxToolCalls: 20
+  steps:
+    - id: inspect
+      name: Read the original file
+      tool: documents.csvRead
+      with:
+        path: ${{ params.inputFile }}
+        maxRows: 5
+    - id: prepare
+      tool: filesystem.mkdir
+      with:
+        path: ${{ params.outputFolder }}
+    - id: clean
+      name: Clean and chart
+      needs: [inspect, prepare]
+      tool: python.run
+      with:
+        args: ["${{ params.inputFile }}", "${{ params.outputFolder }}"]
+        timeoutSeconds: 120
+        script: |
+          import csv, os, sys
+
+          src = os.path.expanduser(sys.argv[1])
+          out = os.path.expanduser(sys.argv[2])
+
+          with open(src, newline="", encoding="utf-8-sig") as f:
+              rows = [[cell.strip() for cell in row] for row in csv.reader(f)]
+          rows = [row for row in rows if any(row)]
+          if not rows:
+              sys.exit("the input file has no rows")
+          header, body = rows[0], rows[1:]
+
+          seen, clean = set(), []
+          for row in body:
+              row = (row + [""] * len(header))[:len(header)]
+              if tuple(row) not in seen:
+                  seen.add(tuple(row))
+                  clean.append(row)
+
+          with open(os.path.join(out, "cleaned.csv"), "w", newline="", encoding="utf-8") as f:
+              csv.writer(f).writerows([header] + clean)
+
+          def number(text):
+              try:
+                  return float(text.replace(",", ""))
+              except ValueError:
+                  return None
+
+          column = next((i for i in range(len(header)) if clean and all(number(r[i]) is not None for r in clean)), None)
+          points = [] if column is None else [(r[0], number(r[column])) for r in clean[:40]]
+          top = max([abs(v) for _, v in points] + [1.0])
+          bar, gap, height = 18, 6, 220
+          width = max(320, 40 + len(points) * (bar + gap))
+          title = "No numeric column found" if column is None else header[column]
+          parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d">' % (width, height + 60),
+                   '<text x="20" y="24" font-family="Helvetica" font-size="14">%s</text>' % title.replace("&", "&amp;").replace("<", "&lt;")]
+          for i, (_, value) in enumerate(points):
+              h = abs(value) / top * height
+              parts.append('<rect x="%d" y="%.1f" width="%d" height="%.1f" fill="#6c5ce7"/>' % (20 + i * (bar + gap), 40 + height - h, bar, h))
+          parts.append("</svg>")
+          with open(os.path.join(out, "chart.svg"), "w", encoding="utf-8") as f:
+              f.write("\n".join(parts))
+
+          print("rows_in=%d rows_out=%d charted_column=%s" % (len(body), len(clean), title))
+    - id: cleaned
+      name: Read the cleaned file back
+      needs: [clean]
+      tool: documents.csvRead
+      with:
+        path: ${{ params.outputFolder }}/cleaned.csv
+        maxRows: 5
+    - id: check
+      needs: [cleaned]
+      verify:
+        - fileNonEmpty: ${{ params.outputFolder }}/cleaned.csv
+        - fileContains: ${{ params.outputFolder }}/chart.svg
+          text: <svg
+        - truthy: ${{ steps.cleaned.output.rowCount > 0 }}
+    - id: result
+      needs: [check]
+      output:
+        cleaned: ${{ params.outputFolder }}/cleaned.csv
+        chart: ${{ params.outputFolder }}/chart.svg
+        rows: ${{ steps.cleaned.output.rowCount }}
+        log: ${{ steps.clean.output.stdout }}
+      artifacts:
+        - ${{ params.outputFolder }}/cleaned.csv
+        - ${{ params.outputFolder }}/chart.svg

@@ -1,0 +1,125 @@
+# ORIX OS Automation
+# File: Workflows/Examples/02-pdf-to-structured-report.yaml
+# Description: Built-in automation: extracts metadata and text statistics from the PDFs of a folder into a CSV and a PDF report.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - Text extraction works on PDFs that carry a text layer; scanned PDFs yield little or no text (no OCR here).
+# - Only the first maxBytes of each PDF's text are read; the character count in the report is the count of what was read.
+# - The report is a plain table; no model is involved, so nothing is "summarised".
+# - Tool argument names and output fields (matches[].path, pageCount, title, text) are to be reconciled with the real tools.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: pdf-to-structured-report
+  name: PDF to structured data and report
+  description: >-
+    Reads every PDF of a folder, extracts page count, title and the size of its text layer, writes the
+    result as a CSV catalogue and renders a one-page PDF report from a Markdown table.
+  tags: [pdf, documents, report]
+spec:
+  triggers:
+    - type: manual
+  parameters:
+    - name: inputFolder
+      type: path
+      default: ~/ORIX Samples/pdf-to-structured-report/Input
+      description: Folder containing the PDFs.
+    - name: outputFolder
+      type: path
+      default: ~/ORIX Samples/pdf-to-structured-report/Output
+      description: Folder that receives catalog.csv, report.md and report.pdf.
+  permissions:
+    filesystem:
+      read: ["${{ params.inputFolder }}", "${{ params.outputFolder }}"]
+      write: ["${{ params.outputFolder }}"]
+  budget:
+    maxDurationSeconds: 900
+    maxToolCalls: 1000
+  steps:
+    - id: find
+      name: Find the PDFs
+      tool: filesystem.search
+      with:
+        path: ${{ params.inputFolder }}
+        pattern: "*.pdf"
+        recursive: true
+    - id: prepare
+      name: Create the output folder
+      tool: filesystem.mkdir
+      with:
+        path: ${{ params.outputFolder }}
+    - id: extract
+      name: Read each PDF
+      needs: [find]
+      foreach: ${{ steps.find.output.matches }}
+      as: pdf
+      concurrency: 2
+      collect: row
+      steps:
+        - id: info
+          tool: documents.pdfInfo
+          with:
+            path: ${{ pdf.path }}
+        - id: text
+          tool: documents.pdfText
+          with:
+            path: ${{ pdf.path }}
+            maxBytes: 200000
+        - id: row
+          needs: [info, text]
+          transform: ${{ [basename(pdf.path), steps.info.output.pageCount, default(steps.info.output.title, ""), len(steps.text.output.text)] }}
+    - id: catalog
+      name: Write the CSV catalogue
+      needs: [extract, prepare]
+      tool: documents.csvWrite
+      with:
+        path: ${{ params.outputFolder }}/catalog.csv
+        header: [file, pages, title, textCharacters]
+        rows: ${{ steps.extract.output.results }}
+        overwrite: true
+    - id: markdown
+      name: Write the Markdown report
+      needs: [extract, prepare]
+      tool: filesystem.write
+      with:
+        path: ${{ params.outputFolder }}/report.md
+        overwrite: true
+        content: |
+          # PDF report
+
+          Folder: ${{ params.inputFolder }}
+          Generated: ${{ env.DATETIME }}
+          Documents: ${{ steps.extract.output.count }}
+          Pages in total: ${{ sum(steps.extract.output.results, r => r[1]) }}
+
+          | File | Pages | Title | Text characters |
+          |---|---|---|---|
+          ${{ join(map(steps.extract.output.results, r => "| " + join(r, " | ") + " |"), "\n") }}
+    - id: render
+      name: Render the report as PDF
+      needs: [markdown]
+      tool: documents.renderPDF
+      with:
+        source: ${{ params.outputFolder }}/report.md
+        destination: ${{ params.outputFolder }}/report.pdf
+        overwrite: true
+    - id: check
+      name: Verify the artifacts
+      needs: [catalog, render]
+      verify:
+        - truthy: ${{ steps.extract.output.count > 0 }}
+        - fileNonEmpty: ${{ params.outputFolder }}/catalog.csv
+        - fileContains: ${{ params.outputFolder }}/report.md
+          text: "| File | Pages |"
+        - fileNonEmpty: ${{ params.outputFolder }}/report.pdf
+    - id: result
+      needs: [check]
+      output:
+        documents: ${{ steps.extract.output.count }}
+        catalog: ${{ params.outputFolder }}/catalog.csv
+      artifacts:
+        - ${{ params.outputFolder }}/catalog.csv
+        - ${{ params.outputFolder }}/report.pdf

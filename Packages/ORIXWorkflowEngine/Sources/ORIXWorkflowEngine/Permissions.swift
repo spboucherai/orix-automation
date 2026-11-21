@@ -1,0 +1,84 @@
+// ORIX OS Automation
+// File: Packages/ORIXWorkflowEngine/Sources/ORIXWorkflowEngine/Permissions.swift
+// Description: From declared workflow permissions to Core capabilities and proposed grants, with explicit `~` expansion and parameter substitution.
+//
+// Author: Simon-Pierre Boucher
+// Contact: contact@spboucher.ai
+import Foundation
+import ORIXCore
+
+extension WorkflowDocument {
+    /// Parameter values used when nothing is supplied: the declared defaults.
+    public var parameterDefaults: [String: JSONValue] {
+        var out: [String: JSONValue] = [:]
+        for p in spec.parameters { if let d = p.defaultValue { out[p.name] = d } }
+        return out
+    }
+
+    /// Resolves a permission entry. Only `${{ params.<name> }}` may appear in it; anything unresolved yields nil.
+    func resolvePermissionEntry(_ text: String, parameters: [String: JSONValue]) -> String? {
+        guard text.contains("${{") else { return text }
+        var values = parameterDefaults
+        for (k, v) in parameters { values[k] = v }
+        guard let refs = try? WorkflowExpression.references(in: text, isExpressionField: false),
+              refs.steps.isEmpty, refs.variables.isEmpty, refs.environment.isEmpty, refs.freeNames.isEmpty, refs.secrets.isEmpty,
+              refs.parameters.allSatisfy({ values[$0] != nil }),
+              let v = try? WorkflowExpression.interpolate(text, context: ExpressionContext(params: values, environment: [:])),
+              case .string(let s) = v else { return nil }
+        return s
+    }
+
+    /// The capabilities this workflow declares, with `~` expanded against `home` and paths made canonical.
+    /// Entries that cannot be resolved (relative paths, `~user`, missing parameters) are left out; the validator reports them.
+    public func declaredCapabilities(home: String, parameters: [String: JSONValue] = [:]) -> [Capability] {
+        let p = spec.permissions
+        var out: [Capability] = []
+        func add(_ c: Capability) { if !out.contains(c) { out.append(c) } }
+        func path(_ raw: String) -> String? {
+            guard let text = resolvePermissionEntry(raw, parameters: parameters) else { return nil }
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+            let expanded: String
+            if trimmed == "~" { expanded = home }
+            else if trimmed.hasPrefix("~/") { expanded = home + String(trimmed.dropFirst(1)) }
+            else if trimmed.hasPrefix("/") { expanded = trimmed }
+            else { return nil }
+            return try? PathResolver.canonical(expanded, relativeTo: URL(fileURLWithPath: home))
+        }
+        func entries(_ list: [String]) -> [String] { list.compactMap { resolvePermissionEntry($0, parameters: parameters) }.filter { !$0.isEmpty } }
+        for raw in p.filesystem.read { if let x = path(raw) { add(.fileRead(path: x)) } }
+        for raw in p.filesystem.write { if let x = path(raw) { add(.fileWrite(path: x)) } }
+        for raw in p.filesystem.delete { if let x = path(raw) { add(.fileDelete(path: x)) } }
+        for x in entries(p.processes) { add(.processExec(executable: x)) }
+        for x in entries(p.scripts) { add(.scriptRuntime(name: x)) }
+        for x in entries(p.apps.automation) { add(.appAutomation(bundleID: x)) }
+        for x in entries(p.apps.accessibility) { add(.accessibility(bundleID: x)) }
+        for x in entries(p.apps.control) { add(.appControl(bundleID: x)) }
+        for x in entries(p.network) { add(.network(host: x.lowercased())) }
+        for x in entries(p.browser) { add(.browser(host: x.lowercased())) }
+        for x in entries(p.secrets) { add(.secret(reference: x)) }
+        if p.clipboard.read { add(.clipboardRead) }
+        if p.clipboard.write { add(.clipboardWrite) }
+        if p.notifications { add(.notify) }
+        for x in entries(p.screen) { add(.screenCapture(scope: x)) }
+        return out
+    }
+
+    /// Highest tier a workflow-scoped grant of this capability authorises without a new approval. Never above tier 2:
+    /// high-risk operations (permanent deletion, privileged changes) always need a contemporaneous approval.
+    public static func proposedTier(for capability: Capability) -> ApprovalTier {
+        switch capability {
+        case .fileRead, .clipboardRead, .screenCapture: return .readOnly
+        case .fileWrite, .fileDelete, .clipboardWrite, .notify: return .reversibleWrite
+        default: return .consequential
+        }
+    }
+
+    /// Grants to show in the "review permissions" sheet: one per declared capability, scoped to this workflow.
+    public func proposedGrants(workflowID: String, home: String = NSHomeDirectory(), parameters: [String: JSONValue] = [:],
+                               now: Date = Date()) -> [PermissionGrant] {
+        declaredCapabilities(home: home, parameters: parameters).map { cap in
+            PermissionGrant(capability: cap, scope: .workflow(workflowID: workflowID), maxTier: Self.proposedTier(for: cap),
+                            createdAt: now, source: "workflow:\(workflowID)", note: "Declared by \(metadata.name)")
+        }
+    }
+}

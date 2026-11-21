@@ -1,0 +1,99 @@
+# ORIX OS Automation
+# File: Workflows/Examples/12-document-metadata-catalog.yaml
+# Description: Built-in automation: catalogues every file of a folder (size, dates, SHA-256) into a CSV.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - Filesystem metadata only (size, modification date) plus a SHA-256 per file; document-internal metadata
+#   (PDF author, EXIF, …) is not read here — see the "PDF to structured data and report" example for PDFs.
+# - Hashing large folders takes time; four files are processed at once and the tool-call budget caps the run
+#   at roughly 2 500 files (two calls per file).
+# - The catalogue is rewritten in full at every run; no history is kept.
+# - Output fields (entries[].path/isDirectory, size, modifiedAt, sha256) are to be reconciled with the real filesystem tools.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: document-metadata-catalog
+  name: Document metadata extraction and cataloging
+  description: >-
+    Walks a folder, reads size, modification date and SHA-256 of every file and writes one catalogue row
+    per file to a CSV, then checks that the catalogue has as many rows as files found.
+  tags: [documents, metadata, catalog, csv]
+spec:
+  triggers:
+    - type: manual
+  parameters:
+    - name: documentsFolder
+      type: path
+      default: ~/ORIX Samples/document-metadata-catalog/Documents
+      description: Folder to catalogue (recursively).
+    - name: catalogFile
+      type: path
+      default: ~/ORIX Samples/document-metadata-catalog/catalog.csv
+      description: CSV file to write.
+  permissions:
+    filesystem:
+      read: ["${{ params.documentsFolder }}", "${{ params.catalogFile }}"]
+      write: ["${{ params.catalogFile }}"]
+  budget:
+    maxDurationSeconds: 1800
+    maxToolCalls: 5000
+  steps:
+    - id: list
+      tool: filesystem.list
+      with:
+        path: ${{ params.documentsFolder }}
+        recursive: true
+    - id: files
+      needs: [list]
+      transform: ${{ filter(steps.list.output.entries, e => !e.isDirectory) }}
+    - id: describe
+      name: Describe each file
+      needs: [files]
+      foreach: ${{ steps.files.output }}
+      as: doc
+      concurrency: 4
+      collect: row
+      steps:
+        - id: meta
+          tool: filesystem.metadata
+          with:
+            path: ${{ doc.path }}
+        - id: hash
+          tool: filesystem.checksum
+          with:
+            path: ${{ doc.path }}
+        - id: row
+          needs: [meta, hash]
+          transform: ${{ [doc.path, lower(extname(doc.path)), steps.meta.output.size, steps.meta.output.modifiedAt, steps.hash.output.sha256] }}
+    - id: catalog
+      name: Write the catalogue
+      needs: [describe]
+      tool: documents.csvWrite
+      with:
+        path: ${{ params.catalogFile }}
+        header: [path, extension, bytes, modifiedAt, sha256]
+        rows: ${{ steps.describe.output.results }}
+        overwrite: true
+    - id: readBack
+      needs: [catalog]
+      tool: documents.csvRead
+      with:
+        path: ${{ params.catalogFile }}
+        maxRows: 1
+    - id: check
+      needs: [readBack]
+      verify:
+        - fileNonEmpty: ${{ params.catalogFile }}
+        - equals: ["${{ steps.describe.output.count }}", "${{ len(steps.files.output) }}"]
+        - equals: ["${{ steps.readBack.output.rowCount }}", "${{ len(steps.files.output) }}"]
+    - id: result
+      needs: [check]
+      output:
+        catalog: ${{ params.catalogFile }}
+        files: ${{ len(steps.files.output) }}
+        totalBytes: ${{ sum(steps.describe.output.results, r => r[2]) }}
+      artifacts:
+        - ${{ params.catalogFile }}

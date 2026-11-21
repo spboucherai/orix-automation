@@ -1,0 +1,143 @@
+# ORIX OS Automation
+# File: Workflows/Examples/15-browser-data-entry.yaml
+# Description: Built-in automation: fills and submits a form on a local test page in the built-in browser, with an approval before submitting.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - Targets a TEST page: by default http://localhost:8765/form.html, which the user serves from the sample folder
+#   (for example `python3 -m http.server 8765` inside it). Only the host listed in permissions.browser can be opened.
+# - The selectors (#name, #email, button[type=submit], #result) match the sample form; another page needs other selectors.
+# - Submitting a form is an external action: the workflow always stops for approval first. An unanswered approval leaves
+#   the run WAITING_APPROVAL and nothing is submitted.
+# - Do not point this at a real site without reading its terms; no CAPTCHA, login or anti-bot measure is handled or bypassed.
+# - The `page` handle passed between browser steps, argument names (value) and output fields (pageID, text) are to be
+#   reconciled with the real browser tools.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: browser-data-entry
+  name: Multi-step browser data entry on a test site
+  description: >-
+    Opens a local test form in the built-in browser, fills two fields, asks for approval, submits, reads
+    the confirmation, checks that it shows the submitted name and saves a screenshot as evidence.
+  tags: [browser, forms, approval, test]
+spec:
+  triggers:
+    - type: manual
+  parameters:
+    - name: pageURL
+      type: string
+      default: http://localhost:8765/form.html
+      description: Address of the test form. Its host must be listed in permissions.browser.
+    - name: fullName
+      type: string
+      default: Ada Lovelace
+      description: Value typed into the name field.
+    - name: email
+      type: string
+      default: ada@example.com
+      description: Value typed into the e-mail field.
+    - name: evidenceFolder
+      type: path
+      default: ~/ORIX Samples/browser-data-entry/Evidence
+      description: Folder that receives the confirmation screenshot.
+  permissions:
+    filesystem:
+      read: ["${{ params.evidenceFolder }}"]
+      write: ["${{ params.evidenceFolder }}"]
+    browser: [localhost]
+  budget:
+    maxDurationSeconds: 600
+    maxToolCalls: 30
+  steps:
+    - id: prepare
+      tool: filesystem.mkdir
+      with:
+        path: ${{ params.evidenceFolder }}
+    - id: open
+      name: Open the form
+      tool: browser.open
+      with:
+        url: ${{ params.pageURL }}
+        timeoutSeconds: 30
+    - id: formReady
+      needs: [open]
+      tool: browser.waitFor
+      with:
+        page: ${{ steps.open.output.pageID }}
+        selector: "#name"
+        timeoutSeconds: 15
+      onError: closeAfterFailure
+    - id: fillName
+      needs: [formReady]
+      tool: browser.fill
+      with:
+        page: ${{ steps.open.output.pageID }}
+        selector: "#name"
+        value: ${{ params.fullName }}
+      onError: closeAfterFailure
+    - id: fillEmail
+      needs: [fillName]
+      tool: browser.fill
+      with:
+        page: ${{ steps.open.output.pageID }}
+        selector: "#email"
+        value: ${{ params.email }}
+      onError: closeAfterFailure
+    - id: confirm
+      needs: [fillEmail]
+      approval: Submit the form at ${{ params.pageURL }} with name "${{ params.fullName }}" and e-mail "${{ params.email }}"?
+    - id: submit
+      needs: [confirm]
+      tool: browser.click
+      with:
+        page: ${{ steps.open.output.pageID }}
+        selector: button[type=submit]
+      onError: closeAfterFailure
+    - id: confirmation
+      needs: [submit]
+      tool: browser.waitFor
+      with:
+        page: ${{ steps.open.output.pageID }}
+        selector: "#result"
+        timeoutSeconds: 15
+      onError: closeAfterFailure
+    - id: readResult
+      needs: [confirmation]
+      tool: browser.read
+      with:
+        page: ${{ steps.open.output.pageID }}
+        selector: "#result"
+        maxBytes: 20000
+    - id: screenshot
+      needs: [confirmation, prepare]
+      tool: browser.screenshot
+      with:
+        page: ${{ steps.open.output.pageID }}
+        destination: ${{ params.evidenceFolder }}/confirmation.png
+        overwrite: true
+    - id: close
+      needs: [readResult, screenshot]
+      tool: browser.close
+      with:
+        page: ${{ steps.open.output.pageID }}
+    - id: closeAfterFailure
+      name: Close the page when a step failed
+      tool: browser.close
+      with:
+        page: ${{ steps.open.output.pageID }}
+      continueOnError: true
+    - id: check
+      needs: [close]
+      verify:
+        - truthy: ${{ contains(steps.readResult.output.text, params.fullName) }}
+        - fileNonEmpty: ${{ params.evidenceFolder }}/confirmation.png
+    - id: result
+      needs: [check]
+      output:
+        confirmation: ${{ steps.readResult.output.text }}
+        screenshot: ${{ params.evidenceFolder }}/confirmation.png
+      artifacts:
+        - ${{ params.evidenceFolder }}/confirmation.png

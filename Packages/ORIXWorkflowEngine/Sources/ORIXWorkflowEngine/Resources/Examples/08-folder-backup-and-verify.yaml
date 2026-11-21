@@ -1,0 +1,126 @@
+# ORIX OS Automation
+# File: Workflows/Examples/08-folder-backup-and-verify.yaml
+# Description: Built-in automation: archives a folder, restores the archive next to it and compares the restored copy with the source.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - This is a local copy, not an off-site backup: it protects against mistakes, not against losing the disk.
+# - Verification restores the archive into a temporary folder under the backup root and compares it with the source;
+#   it needs free space for archive + restored copy. The temporary folder is moved to the Trash afterwards, not erased.
+# - Files that change during the run can make the comparison fail; that is reported as a failed verification, not hidden.
+# - Old backups are never pruned.
+# - Nothing runs while the Mac is off or asleep at 02:00; see the scheduler's missed-run policy.
+# - Argument names and output fields (sha256, identical) are to be reconciled with the real filesystem tools.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: folder-backup-and-verify
+  name: Folder backup and verification
+  description: >-
+    Archives a folder into a dated zip, records its SHA-256, restores the archive into a temporary folder,
+    compares the restored tree with the source and only then reports the backup as good.
+  tags: [backup, archive, verify, schedule]
+spec:
+  triggers:
+    - type: schedule
+      cron: "0 2 * * *"
+      timezone: America/Toronto
+    - type: manual
+  parameters:
+    - name: source
+      type: path
+      default: ~/ORIX Samples/folder-backup-and-verify/Documents
+      description: Folder to back up.
+    - name: backupRoot
+      type: path
+      default: ~/ORIX Samples/folder-backup-and-verify/Backups
+      description: Folder that receives the dated archives.
+  permissions:
+    filesystem:
+      read: ["${{ params.source }}", "${{ params.backupRoot }}"]
+      write: ["${{ params.backupRoot }}"]
+      delete: ["${{ params.backupRoot }}"]
+    notifications: true
+  budget:
+    maxDurationSeconds: 3600
+    maxToolCalls: 20
+  steps:
+    - id: paths
+      set:
+        archive: ${{ params.backupRoot }}/backup-${{ env.DATE }}.zip
+        restored: ${{ params.backupRoot }}/.verify-${{ env.TIMESTAMP }}
+    - id: prepare
+      tool: filesystem.mkdir
+      with:
+        path: ${{ params.backupRoot }}
+    - id: archive
+      name: Create the archive
+      needs: [paths, prepare]
+      tool: filesystem.archive
+      with:
+        source: ${{ params.source }}
+        destination: ${{ vars.archive }}
+        overwrite: true
+      timeoutSeconds: 1800
+    - id: checksum
+      needs: [archive]
+      tool: filesystem.checksum
+      with:
+        path: ${{ vars.archive }}
+    - id: record
+      name: Record the checksum
+      needs: [checksum]
+      tool: filesystem.write
+      with:
+        path: ${{ vars.archive }}.sha256
+        content: "${{ steps.checksum.output.sha256 }}  ${{ basename(vars.archive) }}\n"
+        overwrite: true
+    - id: restore
+      name: Restore into a temporary folder
+      needs: [archive]
+      tool: filesystem.unarchive
+      with:
+        source: ${{ vars.archive }}
+        destination: ${{ vars.restored }}
+      timeoutSeconds: 1800
+      onError: cleanupAfterFailure
+    - id: compare
+      name: Compare the restored copy with the source
+      needs: [restore]
+      tool: filesystem.compare
+      with:
+        source: ${{ params.source }}
+        destination: ${{ joinPath(vars.restored, basename(params.source)) }}
+        recursive: true
+    - id: check
+      needs: [compare, record]
+      verify:
+        - fileNonEmpty: ${{ vars.archive }}
+        - fileContains: ${{ vars.archive }}.sha256
+          text: ${{ steps.checksum.output.sha256 }}
+        - truthy: ${{ steps.compare.output.identical }}
+    - id: cleanup
+      name: Move the temporary copy to the Trash
+      needs: [compare]
+      tool: filesystem.trash
+      with:
+        path: ${{ vars.restored }}
+    - id: cleanupAfterFailure
+      name: Move a partial restore to the Trash
+      tool: filesystem.trash
+      with:
+        path: ${{ vars.restored }}
+      continueOnError: true
+    - id: announce
+      needs: [check, cleanup]
+      notify: Backup verified, SHA-256 ${{ slice(steps.checksum.output.sha256, 0, 12) }}…
+      title: Folder backup
+    - id: result
+      needs: [check]
+      output:
+        archive: ${{ vars.archive }}
+        sha256: ${{ steps.checksum.output.sha256 }}
+      artifacts:
+        - ${{ vars.archive }}

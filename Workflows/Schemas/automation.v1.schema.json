@@ -1,0 +1,3880 @@
+{
+  "$id" : "https://orix.ai/schemas/automation.v1.schema.json",
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties" : false,
+  "description" : "Canonical form of an ORIX automation document, as written by the code view. Uses only type, properties, required, additionalProperties, items, enum, pattern and numeric/length bounds. Without $ref, nested steps are described in full for 2 container levels under spec.steps (1 under spec.onError) and accepted as any object beyond; cross-field rules (exactly one step kind, DAG of needs, expressions, permissions) are enforced by the ORIX validator, not by this schema.",
+  "properties" : {
+    "apiVersion" : {
+      "enum" : [
+        "orix.ai/v1"
+      ],
+      "type" : "string"
+    },
+    "kind" : {
+      "enum" : [
+        "Automation"
+      ],
+      "type" : "string"
+    },
+    "metadata" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "description" : {
+          "type" : "string"
+        },
+        "id" : {
+          "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+          "type" : "string"
+        },
+        "name" : {
+          "minLength" : 1,
+          "type" : "string"
+        },
+        "tags" : {
+          "items" : {
+            "type" : "string"
+          },
+          "type" : "array"
+        }
+      },
+      "required" : [
+        "id",
+        "name"
+      ],
+      "type" : "object"
+    },
+    "spec" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "budget" : {
+          "additionalProperties" : false,
+          "properties" : {
+            "maxDurationSeconds" : {
+              "type" : "number"
+            },
+            "maxProviderCostUSD" : {
+              "minimum" : 0,
+              "type" : "number"
+            },
+            "maxTokens" : {
+              "minimum" : 1,
+              "type" : "integer"
+            },
+            "maxToolCalls" : {
+              "minimum" : 1,
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        },
+        "layout" : {
+          "additionalProperties" : {
+            "additionalProperties" : false,
+            "properties" : {
+              "x" : {
+                "type" : "number"
+              },
+              "y" : {
+                "type" : "number"
+              }
+            },
+            "required" : [
+              "x",
+              "y"
+            ],
+            "type" : "object"
+          },
+          "description" : "Visual editor node positions keyed by step id.",
+          "type" : "object"
+        },
+        "onError" : {
+          "description" : "Handler steps run when the workflow fails.",
+          "items" : {
+            "additionalProperties" : false,
+            "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+            "properties" : {
+              "agent" : {
+                "additionalProperties" : false,
+                "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                "properties" : {
+                  "instructions" : {
+                    "type" : "string"
+                  },
+                  "model" : {
+                    "description" : "provider/model",
+                    "type" : "string"
+                  },
+                  "tools" : {
+                    "description" : "Tool ids or family.* patterns.",
+                    "items" : {
+                      "type" : "string"
+                    },
+                    "type" : "array"
+                  }
+                },
+                "required" : [
+                  "instructions"
+                ],
+                "type" : [
+                  "string",
+                  "object"
+                ]
+              },
+              "approval" : {
+                "description" : "approval step: message shown to the person.",
+                "type" : "string"
+              },
+              "artifacts" : {
+                "description" : "output step: paths recorded as run artifacts.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "as" : {
+                "description" : "foreach step: loop variable name (default item).",
+                "type" : "string"
+              },
+              "cases" : {
+                "items" : {
+                  "additionalProperties" : false,
+                  "properties" : {
+                    "steps" : {
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "value" : {
+                      "description" : "Value compared with the switch expression."
+                    }
+                  },
+                  "required" : [
+                    "steps",
+                    "value"
+                  ],
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "collect" : {
+                "description" : "foreach step: body step whose output is collected per iteration.",
+                "type" : "string"
+              },
+              "concurrency" : {
+                "description" : "foreach step: iterations run at once (default 1).",
+                "minimum" : 1,
+                "type" : "integer"
+              },
+              "continueOnError" : {
+                "type" : "boolean"
+              },
+              "default" : {
+                "description" : "switch step: ids that run when no case matches.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "delay" : {
+                "description" : "delay step: seconds, or an expression yielding seconds.",
+                "type" : [
+                  "number",
+                  "string"
+                ]
+              },
+              "else" : {
+                "description" : "condition step: ids that run when the condition is falsy.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "expect" : {
+                "description" : "agent step: file postconditions checked by the runtime.",
+                "items" : {
+                  "additionalProperties" : false,
+                  "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                  "properties" : {
+                    "dirNonEmpty" : {
+                      "description" : "Path of a directory that must contain at least one entry.",
+                      "type" : "string"
+                    },
+                    "equals" : {
+                      "description" : "Two values that must be equal after interpolation.",
+                      "maxItems" : 2,
+                      "minItems" : 2,
+                      "type" : "array"
+                    },
+                    "fileContains" : {
+                      "description" : "Path of a file that must contain `text`.",
+                      "type" : "string"
+                    },
+                    "fileExists" : {
+                      "description" : "Path that must exist.",
+                      "type" : "string"
+                    },
+                    "fileNonEmpty" : {
+                      "description" : "Path of a file that must exist and be larger than zero bytes.",
+                      "type" : "string"
+                    },
+                    "stepSucceeded" : {
+                      "description" : "Id of an upstream step that must have succeeded.",
+                      "type" : "string"
+                    },
+                    "text" : {
+                      "description" : "Text searched by fileContains.",
+                      "type" : "string"
+                    },
+                    "truthy" : {
+                      "description" : "Expression (or value) that must be truthy."
+                    }
+                  },
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "fail" : {
+                "description" : "fail step: failure message.",
+                "type" : "string"
+              },
+              "foreach" : {
+                "description" : "foreach step: expression yielding a list, or a literal list.",
+                "type" : [
+                  "string",
+                  "array"
+                ]
+              },
+              "id" : {
+                "description" : "Unique in the whole document, nested steps included.",
+                "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                "type" : "string"
+              },
+              "if" : {
+                "description" : "condition step: expression.",
+                "type" : "string"
+              },
+              "inputs" : {
+                "description" : "agent / subworkflow step: input values.",
+                "type" : "object"
+              },
+              "into" : {
+                "description" : "transform step: variable that also receives the value.",
+                "type" : "string"
+              },
+              "maxIterations" : {
+                "description" : "loop step: mandatory upper bound.",
+                "minimum" : 1,
+                "type" : "integer"
+              },
+              "name" : {
+                "description" : "Display name.",
+                "type" : "string"
+              },
+              "needs" : {
+                "description" : "Ids of steps of the same list that must finish first.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "notify" : {
+                "description" : "notify step: message.",
+                "type" : "string"
+              },
+              "objective" : {
+                "description" : "agent step: what the agent must achieve.",
+                "type" : "string"
+              },
+              "onError" : {
+                "description" : "Id of a handler step of the same list.",
+                "type" : "string"
+              },
+              "output" : {
+                "description" : "output step: workflow outputs.",
+                "type" : "object"
+              },
+              "parallel" : {
+                "description" : "parallel step: branches, joined implicitly.",
+                "items" : {
+                  "additionalProperties" : false,
+                  "properties" : {
+                    "name" : {
+                      "description" : "Branch name.",
+                      "type" : "string"
+                    },
+                    "steps" : {
+                      "description" : "Nested steps (their own `needs` namespace).",
+                      "items" : {
+                        "additionalProperties" : false,
+                        "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+                        "properties" : {
+                          "agent" : {
+                            "additionalProperties" : false,
+                            "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                            "properties" : {
+                              "instructions" : {
+                                "type" : "string"
+                              },
+                              "model" : {
+                                "description" : "provider/model",
+                                "type" : "string"
+                              },
+                              "tools" : {
+                                "description" : "Tool ids or family.* patterns.",
+                                "items" : {
+                                  "type" : "string"
+                                },
+                                "type" : "array"
+                              }
+                            },
+                            "required" : [
+                              "instructions"
+                            ],
+                            "type" : [
+                              "string",
+                              "object"
+                            ]
+                          },
+                          "approval" : {
+                            "description" : "approval step: message shown to the person.",
+                            "type" : "string"
+                          },
+                          "artifacts" : {
+                            "description" : "output step: paths recorded as run artifacts.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "as" : {
+                            "description" : "foreach step: loop variable name (default item).",
+                            "type" : "string"
+                          },
+                          "cases" : {
+                            "items" : {
+                              "additionalProperties" : false,
+                              "properties" : {
+                                "steps" : {
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "value" : {
+                                  "description" : "Value compared with the switch expression."
+                                }
+                              },
+                              "required" : [
+                                "steps",
+                                "value"
+                              ],
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "collect" : {
+                            "description" : "foreach step: body step whose output is collected per iteration.",
+                            "type" : "string"
+                          },
+                          "concurrency" : {
+                            "description" : "foreach step: iterations run at once (default 1).",
+                            "minimum" : 1,
+                            "type" : "integer"
+                          },
+                          "continueOnError" : {
+                            "type" : "boolean"
+                          },
+                          "default" : {
+                            "description" : "switch step: ids that run when no case matches.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "delay" : {
+                            "description" : "delay step: seconds, or an expression yielding seconds.",
+                            "type" : [
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "else" : {
+                            "description" : "condition step: ids that run when the condition is falsy.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "expect" : {
+                            "description" : "agent step: file postconditions checked by the runtime.",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                              "properties" : {
+                                "dirNonEmpty" : {
+                                  "description" : "Path of a directory that must contain at least one entry.",
+                                  "type" : "string"
+                                },
+                                "equals" : {
+                                  "description" : "Two values that must be equal after interpolation.",
+                                  "maxItems" : 2,
+                                  "minItems" : 2,
+                                  "type" : "array"
+                                },
+                                "fileContains" : {
+                                  "description" : "Path of a file that must contain `text`.",
+                                  "type" : "string"
+                                },
+                                "fileExists" : {
+                                  "description" : "Path that must exist.",
+                                  "type" : "string"
+                                },
+                                "fileNonEmpty" : {
+                                  "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                  "type" : "string"
+                                },
+                                "stepSucceeded" : {
+                                  "description" : "Id of an upstream step that must have succeeded.",
+                                  "type" : "string"
+                                },
+                                "text" : {
+                                  "description" : "Text searched by fileContains.",
+                                  "type" : "string"
+                                },
+                                "truthy" : {
+                                  "description" : "Expression (or value) that must be truthy."
+                                }
+                              },
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "fail" : {
+                            "description" : "fail step: failure message.",
+                            "type" : "string"
+                          },
+                          "foreach" : {
+                            "description" : "foreach step: expression yielding a list, or a literal list.",
+                            "type" : [
+                              "string",
+                              "array"
+                            ]
+                          },
+                          "id" : {
+                            "description" : "Unique in the whole document, nested steps included.",
+                            "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                            "type" : "string"
+                          },
+                          "if" : {
+                            "description" : "condition step: expression.",
+                            "type" : "string"
+                          },
+                          "inputs" : {
+                            "description" : "agent / subworkflow step: input values.",
+                            "type" : "object"
+                          },
+                          "into" : {
+                            "description" : "transform step: variable that also receives the value.",
+                            "type" : "string"
+                          },
+                          "maxIterations" : {
+                            "description" : "loop step: mandatory upper bound.",
+                            "minimum" : 1,
+                            "type" : "integer"
+                          },
+                          "name" : {
+                            "description" : "Display name.",
+                            "type" : "string"
+                          },
+                          "needs" : {
+                            "description" : "Ids of steps of the same list that must finish first.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "notify" : {
+                            "description" : "notify step: message.",
+                            "type" : "string"
+                          },
+                          "objective" : {
+                            "description" : "agent step: what the agent must achieve.",
+                            "type" : "string"
+                          },
+                          "onError" : {
+                            "description" : "Id of a handler step of the same list.",
+                            "type" : "string"
+                          },
+                          "output" : {
+                            "description" : "output step: workflow outputs.",
+                            "type" : "object"
+                          },
+                          "parallel" : {
+                            "description" : "parallel step: branches, joined implicitly.",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "properties" : {
+                                "name" : {
+                                  "description" : "Branch name.",
+                                  "type" : "string"
+                                },
+                                "steps" : {
+                                  "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                                  "items" : {
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                }
+                              },
+                              "required" : [
+                                "name",
+                                "steps"
+                              ],
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "retry" : {
+                            "additionalProperties" : false,
+                            "properties" : {
+                              "backoffMultiplier" : {
+                                "minimum" : 1,
+                                "type" : "number"
+                              },
+                              "backoffSeconds" : {
+                                "minimum" : 0,
+                                "type" : "number"
+                              },
+                              "force" : {
+                                "description" : "Retry even when the step is not idempotent.",
+                                "type" : "boolean"
+                              },
+                              "maxAttempts" : {
+                                "minimum" : 1,
+                                "type" : "integer"
+                              }
+                            },
+                            "required" : [
+                              "maxAttempts"
+                            ],
+                            "type" : "object"
+                          },
+                          "set" : {
+                            "description" : "set step: variables to assign.",
+                            "type" : "object"
+                          },
+                          "steps" : {
+                            "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                            "items" : {
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "subworkflow" : {
+                            "description" : "subworkflow step: id or name of the workflow to run.",
+                            "type" : "string"
+                          },
+                          "switch" : {
+                            "description" : "switch step: expression whose value selects a case.",
+                            "type" : "string"
+                          },
+                          "then" : {
+                            "description" : "condition step: ids that run when the condition is truthy.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "timeoutSeconds" : {
+                            "type" : "number"
+                          },
+                          "title" : {
+                            "description" : "notify step: title.",
+                            "type" : "string"
+                          },
+                          "tool" : {
+                            "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                            "type" : "string"
+                          },
+                          "transform" : {
+                            "description" : "transform step: expression whose value becomes the step output.",
+                            "type" : "string"
+                          },
+                          "verify" : {
+                            "description" : "verify step: assertions checked by the runtime.",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                              "properties" : {
+                                "dirNonEmpty" : {
+                                  "description" : "Path of a directory that must contain at least one entry.",
+                                  "type" : "string"
+                                },
+                                "equals" : {
+                                  "description" : "Two values that must be equal after interpolation.",
+                                  "maxItems" : 2,
+                                  "minItems" : 2,
+                                  "type" : "array"
+                                },
+                                "fileContains" : {
+                                  "description" : "Path of a file that must contain `text`.",
+                                  "type" : "string"
+                                },
+                                "fileExists" : {
+                                  "description" : "Path that must exist.",
+                                  "type" : "string"
+                                },
+                                "fileNonEmpty" : {
+                                  "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                  "type" : "string"
+                                },
+                                "stepSucceeded" : {
+                                  "description" : "Id of an upstream step that must have succeeded.",
+                                  "type" : "string"
+                                },
+                                "text" : {
+                                  "description" : "Text searched by fileContains.",
+                                  "type" : "string"
+                                },
+                                "truthy" : {
+                                  "description" : "Expression (or value) that must be truthy."
+                                }
+                              },
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "when" : {
+                            "description" : "Expression; the step is skipped when it is falsy.",
+                            "type" : "string"
+                          },
+                          "while" : {
+                            "description" : "loop step: expression evaluated before every iteration.",
+                            "type" : "string"
+                          },
+                          "with" : {
+                            "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                            "type" : "object"
+                          }
+                        },
+                        "required" : [
+                          "id"
+                        ],
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    }
+                  },
+                  "required" : [
+                    "name",
+                    "steps"
+                  ],
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "retry" : {
+                "additionalProperties" : false,
+                "properties" : {
+                  "backoffMultiplier" : {
+                    "minimum" : 1,
+                    "type" : "number"
+                  },
+                  "backoffSeconds" : {
+                    "minimum" : 0,
+                    "type" : "number"
+                  },
+                  "force" : {
+                    "description" : "Retry even when the step is not idempotent.",
+                    "type" : "boolean"
+                  },
+                  "maxAttempts" : {
+                    "minimum" : 1,
+                    "type" : "integer"
+                  }
+                },
+                "required" : [
+                  "maxAttempts"
+                ],
+                "type" : "object"
+              },
+              "set" : {
+                "description" : "set step: variables to assign.",
+                "type" : "object"
+              },
+              "steps" : {
+                "description" : "Nested steps (their own `needs` namespace).",
+                "items" : {
+                  "additionalProperties" : false,
+                  "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+                  "properties" : {
+                    "agent" : {
+                      "additionalProperties" : false,
+                      "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                      "properties" : {
+                        "instructions" : {
+                          "type" : "string"
+                        },
+                        "model" : {
+                          "description" : "provider/model",
+                          "type" : "string"
+                        },
+                        "tools" : {
+                          "description" : "Tool ids or family.* patterns.",
+                          "items" : {
+                            "type" : "string"
+                          },
+                          "type" : "array"
+                        }
+                      },
+                      "required" : [
+                        "instructions"
+                      ],
+                      "type" : [
+                        "string",
+                        "object"
+                      ]
+                    },
+                    "approval" : {
+                      "description" : "approval step: message shown to the person.",
+                      "type" : "string"
+                    },
+                    "artifacts" : {
+                      "description" : "output step: paths recorded as run artifacts.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "as" : {
+                      "description" : "foreach step: loop variable name (default item).",
+                      "type" : "string"
+                    },
+                    "cases" : {
+                      "items" : {
+                        "additionalProperties" : false,
+                        "properties" : {
+                          "steps" : {
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "value" : {
+                            "description" : "Value compared with the switch expression."
+                          }
+                        },
+                        "required" : [
+                          "steps",
+                          "value"
+                        ],
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "collect" : {
+                      "description" : "foreach step: body step whose output is collected per iteration.",
+                      "type" : "string"
+                    },
+                    "concurrency" : {
+                      "description" : "foreach step: iterations run at once (default 1).",
+                      "minimum" : 1,
+                      "type" : "integer"
+                    },
+                    "continueOnError" : {
+                      "type" : "boolean"
+                    },
+                    "default" : {
+                      "description" : "switch step: ids that run when no case matches.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "delay" : {
+                      "description" : "delay step: seconds, or an expression yielding seconds.",
+                      "type" : [
+                        "number",
+                        "string"
+                      ]
+                    },
+                    "else" : {
+                      "description" : "condition step: ids that run when the condition is falsy.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "expect" : {
+                      "description" : "agent step: file postconditions checked by the runtime.",
+                      "items" : {
+                        "additionalProperties" : false,
+                        "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                        "properties" : {
+                          "dirNonEmpty" : {
+                            "description" : "Path of a directory that must contain at least one entry.",
+                            "type" : "string"
+                          },
+                          "equals" : {
+                            "description" : "Two values that must be equal after interpolation.",
+                            "maxItems" : 2,
+                            "minItems" : 2,
+                            "type" : "array"
+                          },
+                          "fileContains" : {
+                            "description" : "Path of a file that must contain `text`.",
+                            "type" : "string"
+                          },
+                          "fileExists" : {
+                            "description" : "Path that must exist.",
+                            "type" : "string"
+                          },
+                          "fileNonEmpty" : {
+                            "description" : "Path of a file that must exist and be larger than zero bytes.",
+                            "type" : "string"
+                          },
+                          "stepSucceeded" : {
+                            "description" : "Id of an upstream step that must have succeeded.",
+                            "type" : "string"
+                          },
+                          "text" : {
+                            "description" : "Text searched by fileContains.",
+                            "type" : "string"
+                          },
+                          "truthy" : {
+                            "description" : "Expression (or value) that must be truthy."
+                          }
+                        },
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "fail" : {
+                      "description" : "fail step: failure message.",
+                      "type" : "string"
+                    },
+                    "foreach" : {
+                      "description" : "foreach step: expression yielding a list, or a literal list.",
+                      "type" : [
+                        "string",
+                        "array"
+                      ]
+                    },
+                    "id" : {
+                      "description" : "Unique in the whole document, nested steps included.",
+                      "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                      "type" : "string"
+                    },
+                    "if" : {
+                      "description" : "condition step: expression.",
+                      "type" : "string"
+                    },
+                    "inputs" : {
+                      "description" : "agent / subworkflow step: input values.",
+                      "type" : "object"
+                    },
+                    "into" : {
+                      "description" : "transform step: variable that also receives the value.",
+                      "type" : "string"
+                    },
+                    "maxIterations" : {
+                      "description" : "loop step: mandatory upper bound.",
+                      "minimum" : 1,
+                      "type" : "integer"
+                    },
+                    "name" : {
+                      "description" : "Display name.",
+                      "type" : "string"
+                    },
+                    "needs" : {
+                      "description" : "Ids of steps of the same list that must finish first.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "notify" : {
+                      "description" : "notify step: message.",
+                      "type" : "string"
+                    },
+                    "objective" : {
+                      "description" : "agent step: what the agent must achieve.",
+                      "type" : "string"
+                    },
+                    "onError" : {
+                      "description" : "Id of a handler step of the same list.",
+                      "type" : "string"
+                    },
+                    "output" : {
+                      "description" : "output step: workflow outputs.",
+                      "type" : "object"
+                    },
+                    "parallel" : {
+                      "description" : "parallel step: branches, joined implicitly.",
+                      "items" : {
+                        "additionalProperties" : false,
+                        "properties" : {
+                          "name" : {
+                            "description" : "Branch name.",
+                            "type" : "string"
+                          },
+                          "steps" : {
+                            "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                            "items" : {
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          }
+                        },
+                        "required" : [
+                          "name",
+                          "steps"
+                        ],
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "retry" : {
+                      "additionalProperties" : false,
+                      "properties" : {
+                        "backoffMultiplier" : {
+                          "minimum" : 1,
+                          "type" : "number"
+                        },
+                        "backoffSeconds" : {
+                          "minimum" : 0,
+                          "type" : "number"
+                        },
+                        "force" : {
+                          "description" : "Retry even when the step is not idempotent.",
+                          "type" : "boolean"
+                        },
+                        "maxAttempts" : {
+                          "minimum" : 1,
+                          "type" : "integer"
+                        }
+                      },
+                      "required" : [
+                        "maxAttempts"
+                      ],
+                      "type" : "object"
+                    },
+                    "set" : {
+                      "description" : "set step: variables to assign.",
+                      "type" : "object"
+                    },
+                    "steps" : {
+                      "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                      "items" : {
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "subworkflow" : {
+                      "description" : "subworkflow step: id or name of the workflow to run.",
+                      "type" : "string"
+                    },
+                    "switch" : {
+                      "description" : "switch step: expression whose value selects a case.",
+                      "type" : "string"
+                    },
+                    "then" : {
+                      "description" : "condition step: ids that run when the condition is truthy.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "timeoutSeconds" : {
+                      "type" : "number"
+                    },
+                    "title" : {
+                      "description" : "notify step: title.",
+                      "type" : "string"
+                    },
+                    "tool" : {
+                      "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                      "type" : "string"
+                    },
+                    "transform" : {
+                      "description" : "transform step: expression whose value becomes the step output.",
+                      "type" : "string"
+                    },
+                    "verify" : {
+                      "description" : "verify step: assertions checked by the runtime.",
+                      "items" : {
+                        "additionalProperties" : false,
+                        "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                        "properties" : {
+                          "dirNonEmpty" : {
+                            "description" : "Path of a directory that must contain at least one entry.",
+                            "type" : "string"
+                          },
+                          "equals" : {
+                            "description" : "Two values that must be equal after interpolation.",
+                            "maxItems" : 2,
+                            "minItems" : 2,
+                            "type" : "array"
+                          },
+                          "fileContains" : {
+                            "description" : "Path of a file that must contain `text`.",
+                            "type" : "string"
+                          },
+                          "fileExists" : {
+                            "description" : "Path that must exist.",
+                            "type" : "string"
+                          },
+                          "fileNonEmpty" : {
+                            "description" : "Path of a file that must exist and be larger than zero bytes.",
+                            "type" : "string"
+                          },
+                          "stepSucceeded" : {
+                            "description" : "Id of an upstream step that must have succeeded.",
+                            "type" : "string"
+                          },
+                          "text" : {
+                            "description" : "Text searched by fileContains.",
+                            "type" : "string"
+                          },
+                          "truthy" : {
+                            "description" : "Expression (or value) that must be truthy."
+                          }
+                        },
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "when" : {
+                      "description" : "Expression; the step is skipped when it is falsy.",
+                      "type" : "string"
+                    },
+                    "while" : {
+                      "description" : "loop step: expression evaluated before every iteration.",
+                      "type" : "string"
+                    },
+                    "with" : {
+                      "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                      "type" : "object"
+                    }
+                  },
+                  "required" : [
+                    "id"
+                  ],
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "subworkflow" : {
+                "description" : "subworkflow step: id or name of the workflow to run.",
+                "type" : "string"
+              },
+              "switch" : {
+                "description" : "switch step: expression whose value selects a case.",
+                "type" : "string"
+              },
+              "then" : {
+                "description" : "condition step: ids that run when the condition is truthy.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "timeoutSeconds" : {
+                "type" : "number"
+              },
+              "title" : {
+                "description" : "notify step: title.",
+                "type" : "string"
+              },
+              "tool" : {
+                "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                "type" : "string"
+              },
+              "transform" : {
+                "description" : "transform step: expression whose value becomes the step output.",
+                "type" : "string"
+              },
+              "verify" : {
+                "description" : "verify step: assertions checked by the runtime.",
+                "items" : {
+                  "additionalProperties" : false,
+                  "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                  "properties" : {
+                    "dirNonEmpty" : {
+                      "description" : "Path of a directory that must contain at least one entry.",
+                      "type" : "string"
+                    },
+                    "equals" : {
+                      "description" : "Two values that must be equal after interpolation.",
+                      "maxItems" : 2,
+                      "minItems" : 2,
+                      "type" : "array"
+                    },
+                    "fileContains" : {
+                      "description" : "Path of a file that must contain `text`.",
+                      "type" : "string"
+                    },
+                    "fileExists" : {
+                      "description" : "Path that must exist.",
+                      "type" : "string"
+                    },
+                    "fileNonEmpty" : {
+                      "description" : "Path of a file that must exist and be larger than zero bytes.",
+                      "type" : "string"
+                    },
+                    "stepSucceeded" : {
+                      "description" : "Id of an upstream step that must have succeeded.",
+                      "type" : "string"
+                    },
+                    "text" : {
+                      "description" : "Text searched by fileContains.",
+                      "type" : "string"
+                    },
+                    "truthy" : {
+                      "description" : "Expression (or value) that must be truthy."
+                    }
+                  },
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "when" : {
+                "description" : "Expression; the step is skipped when it is falsy.",
+                "type" : "string"
+              },
+              "while" : {
+                "description" : "loop step: expression evaluated before every iteration.",
+                "type" : "string"
+              },
+              "with" : {
+                "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                "type" : "object"
+              }
+            },
+            "required" : [
+              "id"
+            ],
+            "type" : "object"
+          },
+          "type" : "array"
+        },
+        "parameters" : {
+          "items" : {
+            "additionalProperties" : false,
+            "properties" : {
+              "default" : {
+                "description" : "Default value."
+              },
+              "description" : {
+                "type" : "string"
+              },
+              "name" : {
+                "pattern" : "^[A-Za-z_][A-Za-z0-9_]*$",
+                "type" : "string"
+              },
+              "required" : {
+                "type" : "boolean"
+              },
+              "type" : {
+                "enum" : [
+                  "string",
+                  "number",
+                  "integer",
+                  "boolean",
+                  "path",
+                  "array",
+                  "object"
+                ],
+                "type" : "string"
+              }
+            },
+            "required" : [
+              "name",
+              "type"
+            ],
+            "type" : "object"
+          },
+          "type" : "array"
+        },
+        "permissions" : {
+          "additionalProperties" : false,
+          "properties" : {
+            "apps" : {
+              "additionalProperties" : false,
+              "description" : "Bundle identifiers.",
+              "properties" : {
+                "accessibility" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                },
+                "automation" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                },
+                "control" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                }
+              },
+              "type" : "object"
+            },
+            "browser" : {
+              "description" : "Hosts the browser tools may open.",
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "clipboard" : {
+              "additionalProperties" : false,
+              "properties" : {
+                "read" : {
+                  "type" : "boolean"
+                },
+                "write" : {
+                  "type" : "boolean"
+                }
+              },
+              "type" : "object"
+            },
+            "filesystem" : {
+              "additionalProperties" : false,
+              "description" : "Absolute or ~/ paths; entries may use ${{ params.<name> }}.",
+              "properties" : {
+                "delete" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                },
+                "read" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                },
+                "write" : {
+                  "items" : {
+                    "type" : "string"
+                  },
+                  "type" : "array"
+                }
+              },
+              "type" : "object"
+            },
+            "network" : {
+              "description" : "Hosts for outbound requests.",
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "notifications" : {
+              "type" : "boolean"
+            },
+            "processes" : {
+              "description" : "Executables the workflow may run.",
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "screen" : {
+              "description" : "Capture scopes: display, window:<bundleID>, region.",
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "scripts" : {
+              "description" : "Script runtimes: bash, python, swift, javascript, applescript, jxa.",
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "secrets" : {
+              "description" : "Keychain secret reference names.",
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            }
+          },
+          "type" : "object"
+        },
+        "steps" : {
+          "items" : {
+            "additionalProperties" : false,
+            "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+            "properties" : {
+              "agent" : {
+                "additionalProperties" : false,
+                "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                "properties" : {
+                  "instructions" : {
+                    "type" : "string"
+                  },
+                  "model" : {
+                    "description" : "provider/model",
+                    "type" : "string"
+                  },
+                  "tools" : {
+                    "description" : "Tool ids or family.* patterns.",
+                    "items" : {
+                      "type" : "string"
+                    },
+                    "type" : "array"
+                  }
+                },
+                "required" : [
+                  "instructions"
+                ],
+                "type" : [
+                  "string",
+                  "object"
+                ]
+              },
+              "approval" : {
+                "description" : "approval step: message shown to the person.",
+                "type" : "string"
+              },
+              "artifacts" : {
+                "description" : "output step: paths recorded as run artifacts.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "as" : {
+                "description" : "foreach step: loop variable name (default item).",
+                "type" : "string"
+              },
+              "cases" : {
+                "items" : {
+                  "additionalProperties" : false,
+                  "properties" : {
+                    "steps" : {
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "value" : {
+                      "description" : "Value compared with the switch expression."
+                    }
+                  },
+                  "required" : [
+                    "steps",
+                    "value"
+                  ],
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "collect" : {
+                "description" : "foreach step: body step whose output is collected per iteration.",
+                "type" : "string"
+              },
+              "concurrency" : {
+                "description" : "foreach step: iterations run at once (default 1).",
+                "minimum" : 1,
+                "type" : "integer"
+              },
+              "continueOnError" : {
+                "type" : "boolean"
+              },
+              "default" : {
+                "description" : "switch step: ids that run when no case matches.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "delay" : {
+                "description" : "delay step: seconds, or an expression yielding seconds.",
+                "type" : [
+                  "number",
+                  "string"
+                ]
+              },
+              "else" : {
+                "description" : "condition step: ids that run when the condition is falsy.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "expect" : {
+                "description" : "agent step: file postconditions checked by the runtime.",
+                "items" : {
+                  "additionalProperties" : false,
+                  "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                  "properties" : {
+                    "dirNonEmpty" : {
+                      "description" : "Path of a directory that must contain at least one entry.",
+                      "type" : "string"
+                    },
+                    "equals" : {
+                      "description" : "Two values that must be equal after interpolation.",
+                      "maxItems" : 2,
+                      "minItems" : 2,
+                      "type" : "array"
+                    },
+                    "fileContains" : {
+                      "description" : "Path of a file that must contain `text`.",
+                      "type" : "string"
+                    },
+                    "fileExists" : {
+                      "description" : "Path that must exist.",
+                      "type" : "string"
+                    },
+                    "fileNonEmpty" : {
+                      "description" : "Path of a file that must exist and be larger than zero bytes.",
+                      "type" : "string"
+                    },
+                    "stepSucceeded" : {
+                      "description" : "Id of an upstream step that must have succeeded.",
+                      "type" : "string"
+                    },
+                    "text" : {
+                      "description" : "Text searched by fileContains.",
+                      "type" : "string"
+                    },
+                    "truthy" : {
+                      "description" : "Expression (or value) that must be truthy."
+                    }
+                  },
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "fail" : {
+                "description" : "fail step: failure message.",
+                "type" : "string"
+              },
+              "foreach" : {
+                "description" : "foreach step: expression yielding a list, or a literal list.",
+                "type" : [
+                  "string",
+                  "array"
+                ]
+              },
+              "id" : {
+                "description" : "Unique in the whole document, nested steps included.",
+                "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                "type" : "string"
+              },
+              "if" : {
+                "description" : "condition step: expression.",
+                "type" : "string"
+              },
+              "inputs" : {
+                "description" : "agent / subworkflow step: input values.",
+                "type" : "object"
+              },
+              "into" : {
+                "description" : "transform step: variable that also receives the value.",
+                "type" : "string"
+              },
+              "maxIterations" : {
+                "description" : "loop step: mandatory upper bound.",
+                "minimum" : 1,
+                "type" : "integer"
+              },
+              "name" : {
+                "description" : "Display name.",
+                "type" : "string"
+              },
+              "needs" : {
+                "description" : "Ids of steps of the same list that must finish first.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "notify" : {
+                "description" : "notify step: message.",
+                "type" : "string"
+              },
+              "objective" : {
+                "description" : "agent step: what the agent must achieve.",
+                "type" : "string"
+              },
+              "onError" : {
+                "description" : "Id of a handler step of the same list.",
+                "type" : "string"
+              },
+              "output" : {
+                "description" : "output step: workflow outputs.",
+                "type" : "object"
+              },
+              "parallel" : {
+                "description" : "parallel step: branches, joined implicitly.",
+                "items" : {
+                  "additionalProperties" : false,
+                  "properties" : {
+                    "name" : {
+                      "description" : "Branch name.",
+                      "type" : "string"
+                    },
+                    "steps" : {
+                      "description" : "Nested steps (their own `needs` namespace).",
+                      "items" : {
+                        "additionalProperties" : false,
+                        "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+                        "properties" : {
+                          "agent" : {
+                            "additionalProperties" : false,
+                            "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                            "properties" : {
+                              "instructions" : {
+                                "type" : "string"
+                              },
+                              "model" : {
+                                "description" : "provider/model",
+                                "type" : "string"
+                              },
+                              "tools" : {
+                                "description" : "Tool ids or family.* patterns.",
+                                "items" : {
+                                  "type" : "string"
+                                },
+                                "type" : "array"
+                              }
+                            },
+                            "required" : [
+                              "instructions"
+                            ],
+                            "type" : [
+                              "string",
+                              "object"
+                            ]
+                          },
+                          "approval" : {
+                            "description" : "approval step: message shown to the person.",
+                            "type" : "string"
+                          },
+                          "artifacts" : {
+                            "description" : "output step: paths recorded as run artifacts.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "as" : {
+                            "description" : "foreach step: loop variable name (default item).",
+                            "type" : "string"
+                          },
+                          "cases" : {
+                            "items" : {
+                              "additionalProperties" : false,
+                              "properties" : {
+                                "steps" : {
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "value" : {
+                                  "description" : "Value compared with the switch expression."
+                                }
+                              },
+                              "required" : [
+                                "steps",
+                                "value"
+                              ],
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "collect" : {
+                            "description" : "foreach step: body step whose output is collected per iteration.",
+                            "type" : "string"
+                          },
+                          "concurrency" : {
+                            "description" : "foreach step: iterations run at once (default 1).",
+                            "minimum" : 1,
+                            "type" : "integer"
+                          },
+                          "continueOnError" : {
+                            "type" : "boolean"
+                          },
+                          "default" : {
+                            "description" : "switch step: ids that run when no case matches.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "delay" : {
+                            "description" : "delay step: seconds, or an expression yielding seconds.",
+                            "type" : [
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "else" : {
+                            "description" : "condition step: ids that run when the condition is falsy.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "expect" : {
+                            "description" : "agent step: file postconditions checked by the runtime.",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                              "properties" : {
+                                "dirNonEmpty" : {
+                                  "description" : "Path of a directory that must contain at least one entry.",
+                                  "type" : "string"
+                                },
+                                "equals" : {
+                                  "description" : "Two values that must be equal after interpolation.",
+                                  "maxItems" : 2,
+                                  "minItems" : 2,
+                                  "type" : "array"
+                                },
+                                "fileContains" : {
+                                  "description" : "Path of a file that must contain `text`.",
+                                  "type" : "string"
+                                },
+                                "fileExists" : {
+                                  "description" : "Path that must exist.",
+                                  "type" : "string"
+                                },
+                                "fileNonEmpty" : {
+                                  "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                  "type" : "string"
+                                },
+                                "stepSucceeded" : {
+                                  "description" : "Id of an upstream step that must have succeeded.",
+                                  "type" : "string"
+                                },
+                                "text" : {
+                                  "description" : "Text searched by fileContains.",
+                                  "type" : "string"
+                                },
+                                "truthy" : {
+                                  "description" : "Expression (or value) that must be truthy."
+                                }
+                              },
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "fail" : {
+                            "description" : "fail step: failure message.",
+                            "type" : "string"
+                          },
+                          "foreach" : {
+                            "description" : "foreach step: expression yielding a list, or a literal list.",
+                            "type" : [
+                              "string",
+                              "array"
+                            ]
+                          },
+                          "id" : {
+                            "description" : "Unique in the whole document, nested steps included.",
+                            "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                            "type" : "string"
+                          },
+                          "if" : {
+                            "description" : "condition step: expression.",
+                            "type" : "string"
+                          },
+                          "inputs" : {
+                            "description" : "agent / subworkflow step: input values.",
+                            "type" : "object"
+                          },
+                          "into" : {
+                            "description" : "transform step: variable that also receives the value.",
+                            "type" : "string"
+                          },
+                          "maxIterations" : {
+                            "description" : "loop step: mandatory upper bound.",
+                            "minimum" : 1,
+                            "type" : "integer"
+                          },
+                          "name" : {
+                            "description" : "Display name.",
+                            "type" : "string"
+                          },
+                          "needs" : {
+                            "description" : "Ids of steps of the same list that must finish first.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "notify" : {
+                            "description" : "notify step: message.",
+                            "type" : "string"
+                          },
+                          "objective" : {
+                            "description" : "agent step: what the agent must achieve.",
+                            "type" : "string"
+                          },
+                          "onError" : {
+                            "description" : "Id of a handler step of the same list.",
+                            "type" : "string"
+                          },
+                          "output" : {
+                            "description" : "output step: workflow outputs.",
+                            "type" : "object"
+                          },
+                          "parallel" : {
+                            "description" : "parallel step: branches, joined implicitly.",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "properties" : {
+                                "name" : {
+                                  "description" : "Branch name.",
+                                  "type" : "string"
+                                },
+                                "steps" : {
+                                  "description" : "Nested steps (their own `needs` namespace).",
+                                  "items" : {
+                                    "additionalProperties" : false,
+                                    "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+                                    "properties" : {
+                                      "agent" : {
+                                        "additionalProperties" : false,
+                                        "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                                        "properties" : {
+                                          "instructions" : {
+                                            "type" : "string"
+                                          },
+                                          "model" : {
+                                            "description" : "provider/model",
+                                            "type" : "string"
+                                          },
+                                          "tools" : {
+                                            "description" : "Tool ids or family.* patterns.",
+                                            "items" : {
+                                              "type" : "string"
+                                            },
+                                            "type" : "array"
+                                          }
+                                        },
+                                        "required" : [
+                                          "instructions"
+                                        ],
+                                        "type" : [
+                                          "string",
+                                          "object"
+                                        ]
+                                      },
+                                      "approval" : {
+                                        "description" : "approval step: message shown to the person.",
+                                        "type" : "string"
+                                      },
+                                      "artifacts" : {
+                                        "description" : "output step: paths recorded as run artifacts.",
+                                        "items" : {
+                                          "type" : "string"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "as" : {
+                                        "description" : "foreach step: loop variable name (default item).",
+                                        "type" : "string"
+                                      },
+                                      "cases" : {
+                                        "items" : {
+                                          "additionalProperties" : false,
+                                          "properties" : {
+                                            "steps" : {
+                                              "items" : {
+                                                "type" : "string"
+                                              },
+                                              "type" : "array"
+                                            },
+                                            "value" : {
+                                              "description" : "Value compared with the switch expression."
+                                            }
+                                          },
+                                          "required" : [
+                                            "steps",
+                                            "value"
+                                          ],
+                                          "type" : "object"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "collect" : {
+                                        "description" : "foreach step: body step whose output is collected per iteration.",
+                                        "type" : "string"
+                                      },
+                                      "concurrency" : {
+                                        "description" : "foreach step: iterations run at once (default 1).",
+                                        "minimum" : 1,
+                                        "type" : "integer"
+                                      },
+                                      "continueOnError" : {
+                                        "type" : "boolean"
+                                      },
+                                      "default" : {
+                                        "description" : "switch step: ids that run when no case matches.",
+                                        "items" : {
+                                          "type" : "string"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "delay" : {
+                                        "description" : "delay step: seconds, or an expression yielding seconds.",
+                                        "type" : [
+                                          "number",
+                                          "string"
+                                        ]
+                                      },
+                                      "else" : {
+                                        "description" : "condition step: ids that run when the condition is falsy.",
+                                        "items" : {
+                                          "type" : "string"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "expect" : {
+                                        "description" : "agent step: file postconditions checked by the runtime.",
+                                        "items" : {
+                                          "additionalProperties" : false,
+                                          "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                                          "properties" : {
+                                            "dirNonEmpty" : {
+                                              "description" : "Path of a directory that must contain at least one entry.",
+                                              "type" : "string"
+                                            },
+                                            "equals" : {
+                                              "description" : "Two values that must be equal after interpolation.",
+                                              "maxItems" : 2,
+                                              "minItems" : 2,
+                                              "type" : "array"
+                                            },
+                                            "fileContains" : {
+                                              "description" : "Path of a file that must contain `text`.",
+                                              "type" : "string"
+                                            },
+                                            "fileExists" : {
+                                              "description" : "Path that must exist.",
+                                              "type" : "string"
+                                            },
+                                            "fileNonEmpty" : {
+                                              "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                              "type" : "string"
+                                            },
+                                            "stepSucceeded" : {
+                                              "description" : "Id of an upstream step that must have succeeded.",
+                                              "type" : "string"
+                                            },
+                                            "text" : {
+                                              "description" : "Text searched by fileContains.",
+                                              "type" : "string"
+                                            },
+                                            "truthy" : {
+                                              "description" : "Expression (or value) that must be truthy."
+                                            }
+                                          },
+                                          "type" : "object"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "fail" : {
+                                        "description" : "fail step: failure message.",
+                                        "type" : "string"
+                                      },
+                                      "foreach" : {
+                                        "description" : "foreach step: expression yielding a list, or a literal list.",
+                                        "type" : [
+                                          "string",
+                                          "array"
+                                        ]
+                                      },
+                                      "id" : {
+                                        "description" : "Unique in the whole document, nested steps included.",
+                                        "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                                        "type" : "string"
+                                      },
+                                      "if" : {
+                                        "description" : "condition step: expression.",
+                                        "type" : "string"
+                                      },
+                                      "inputs" : {
+                                        "description" : "agent / subworkflow step: input values.",
+                                        "type" : "object"
+                                      },
+                                      "into" : {
+                                        "description" : "transform step: variable that also receives the value.",
+                                        "type" : "string"
+                                      },
+                                      "maxIterations" : {
+                                        "description" : "loop step: mandatory upper bound.",
+                                        "minimum" : 1,
+                                        "type" : "integer"
+                                      },
+                                      "name" : {
+                                        "description" : "Display name.",
+                                        "type" : "string"
+                                      },
+                                      "needs" : {
+                                        "description" : "Ids of steps of the same list that must finish first.",
+                                        "items" : {
+                                          "type" : "string"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "notify" : {
+                                        "description" : "notify step: message.",
+                                        "type" : "string"
+                                      },
+                                      "objective" : {
+                                        "description" : "agent step: what the agent must achieve.",
+                                        "type" : "string"
+                                      },
+                                      "onError" : {
+                                        "description" : "Id of a handler step of the same list.",
+                                        "type" : "string"
+                                      },
+                                      "output" : {
+                                        "description" : "output step: workflow outputs.",
+                                        "type" : "object"
+                                      },
+                                      "parallel" : {
+                                        "description" : "parallel step: branches, joined implicitly.",
+                                        "items" : {
+                                          "additionalProperties" : false,
+                                          "properties" : {
+                                            "name" : {
+                                              "description" : "Branch name.",
+                                              "type" : "string"
+                                            },
+                                            "steps" : {
+                                              "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                                              "items" : {
+                                                "type" : "object"
+                                              },
+                                              "type" : "array"
+                                            }
+                                          },
+                                          "required" : [
+                                            "name",
+                                            "steps"
+                                          ],
+                                          "type" : "object"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "retry" : {
+                                        "additionalProperties" : false,
+                                        "properties" : {
+                                          "backoffMultiplier" : {
+                                            "minimum" : 1,
+                                            "type" : "number"
+                                          },
+                                          "backoffSeconds" : {
+                                            "minimum" : 0,
+                                            "type" : "number"
+                                          },
+                                          "force" : {
+                                            "description" : "Retry even when the step is not idempotent.",
+                                            "type" : "boolean"
+                                          },
+                                          "maxAttempts" : {
+                                            "minimum" : 1,
+                                            "type" : "integer"
+                                          }
+                                        },
+                                        "required" : [
+                                          "maxAttempts"
+                                        ],
+                                        "type" : "object"
+                                      },
+                                      "set" : {
+                                        "description" : "set step: variables to assign.",
+                                        "type" : "object"
+                                      },
+                                      "steps" : {
+                                        "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                                        "items" : {
+                                          "type" : "object"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "subworkflow" : {
+                                        "description" : "subworkflow step: id or name of the workflow to run.",
+                                        "type" : "string"
+                                      },
+                                      "switch" : {
+                                        "description" : "switch step: expression whose value selects a case.",
+                                        "type" : "string"
+                                      },
+                                      "then" : {
+                                        "description" : "condition step: ids that run when the condition is truthy.",
+                                        "items" : {
+                                          "type" : "string"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "timeoutSeconds" : {
+                                        "type" : "number"
+                                      },
+                                      "title" : {
+                                        "description" : "notify step: title.",
+                                        "type" : "string"
+                                      },
+                                      "tool" : {
+                                        "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                                        "type" : "string"
+                                      },
+                                      "transform" : {
+                                        "description" : "transform step: expression whose value becomes the step output.",
+                                        "type" : "string"
+                                      },
+                                      "verify" : {
+                                        "description" : "verify step: assertions checked by the runtime.",
+                                        "items" : {
+                                          "additionalProperties" : false,
+                                          "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                                          "properties" : {
+                                            "dirNonEmpty" : {
+                                              "description" : "Path of a directory that must contain at least one entry.",
+                                              "type" : "string"
+                                            },
+                                            "equals" : {
+                                              "description" : "Two values that must be equal after interpolation.",
+                                              "maxItems" : 2,
+                                              "minItems" : 2,
+                                              "type" : "array"
+                                            },
+                                            "fileContains" : {
+                                              "description" : "Path of a file that must contain `text`.",
+                                              "type" : "string"
+                                            },
+                                            "fileExists" : {
+                                              "description" : "Path that must exist.",
+                                              "type" : "string"
+                                            },
+                                            "fileNonEmpty" : {
+                                              "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                              "type" : "string"
+                                            },
+                                            "stepSucceeded" : {
+                                              "description" : "Id of an upstream step that must have succeeded.",
+                                              "type" : "string"
+                                            },
+                                            "text" : {
+                                              "description" : "Text searched by fileContains.",
+                                              "type" : "string"
+                                            },
+                                            "truthy" : {
+                                              "description" : "Expression (or value) that must be truthy."
+                                            }
+                                          },
+                                          "type" : "object"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "when" : {
+                                        "description" : "Expression; the step is skipped when it is falsy.",
+                                        "type" : "string"
+                                      },
+                                      "while" : {
+                                        "description" : "loop step: expression evaluated before every iteration.",
+                                        "type" : "string"
+                                      },
+                                      "with" : {
+                                        "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                                        "type" : "object"
+                                      }
+                                    },
+                                    "required" : [
+                                      "id"
+                                    ],
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                }
+                              },
+                              "required" : [
+                                "name",
+                                "steps"
+                              ],
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "retry" : {
+                            "additionalProperties" : false,
+                            "properties" : {
+                              "backoffMultiplier" : {
+                                "minimum" : 1,
+                                "type" : "number"
+                              },
+                              "backoffSeconds" : {
+                                "minimum" : 0,
+                                "type" : "number"
+                              },
+                              "force" : {
+                                "description" : "Retry even when the step is not idempotent.",
+                                "type" : "boolean"
+                              },
+                              "maxAttempts" : {
+                                "minimum" : 1,
+                                "type" : "integer"
+                              }
+                            },
+                            "required" : [
+                              "maxAttempts"
+                            ],
+                            "type" : "object"
+                          },
+                          "set" : {
+                            "description" : "set step: variables to assign.",
+                            "type" : "object"
+                          },
+                          "steps" : {
+                            "description" : "Nested steps (their own `needs` namespace).",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+                              "properties" : {
+                                "agent" : {
+                                  "additionalProperties" : false,
+                                  "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                                  "properties" : {
+                                    "instructions" : {
+                                      "type" : "string"
+                                    },
+                                    "model" : {
+                                      "description" : "provider/model",
+                                      "type" : "string"
+                                    },
+                                    "tools" : {
+                                      "description" : "Tool ids or family.* patterns.",
+                                      "items" : {
+                                        "type" : "string"
+                                      },
+                                      "type" : "array"
+                                    }
+                                  },
+                                  "required" : [
+                                    "instructions"
+                                  ],
+                                  "type" : [
+                                    "string",
+                                    "object"
+                                  ]
+                                },
+                                "approval" : {
+                                  "description" : "approval step: message shown to the person.",
+                                  "type" : "string"
+                                },
+                                "artifacts" : {
+                                  "description" : "output step: paths recorded as run artifacts.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "as" : {
+                                  "description" : "foreach step: loop variable name (default item).",
+                                  "type" : "string"
+                                },
+                                "cases" : {
+                                  "items" : {
+                                    "additionalProperties" : false,
+                                    "properties" : {
+                                      "steps" : {
+                                        "items" : {
+                                          "type" : "string"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "value" : {
+                                        "description" : "Value compared with the switch expression."
+                                      }
+                                    },
+                                    "required" : [
+                                      "steps",
+                                      "value"
+                                    ],
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "collect" : {
+                                  "description" : "foreach step: body step whose output is collected per iteration.",
+                                  "type" : "string"
+                                },
+                                "concurrency" : {
+                                  "description" : "foreach step: iterations run at once (default 1).",
+                                  "minimum" : 1,
+                                  "type" : "integer"
+                                },
+                                "continueOnError" : {
+                                  "type" : "boolean"
+                                },
+                                "default" : {
+                                  "description" : "switch step: ids that run when no case matches.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "delay" : {
+                                  "description" : "delay step: seconds, or an expression yielding seconds.",
+                                  "type" : [
+                                    "number",
+                                    "string"
+                                  ]
+                                },
+                                "else" : {
+                                  "description" : "condition step: ids that run when the condition is falsy.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "expect" : {
+                                  "description" : "agent step: file postconditions checked by the runtime.",
+                                  "items" : {
+                                    "additionalProperties" : false,
+                                    "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                                    "properties" : {
+                                      "dirNonEmpty" : {
+                                        "description" : "Path of a directory that must contain at least one entry.",
+                                        "type" : "string"
+                                      },
+                                      "equals" : {
+                                        "description" : "Two values that must be equal after interpolation.",
+                                        "maxItems" : 2,
+                                        "minItems" : 2,
+                                        "type" : "array"
+                                      },
+                                      "fileContains" : {
+                                        "description" : "Path of a file that must contain `text`.",
+                                        "type" : "string"
+                                      },
+                                      "fileExists" : {
+                                        "description" : "Path that must exist.",
+                                        "type" : "string"
+                                      },
+                                      "fileNonEmpty" : {
+                                        "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                        "type" : "string"
+                                      },
+                                      "stepSucceeded" : {
+                                        "description" : "Id of an upstream step that must have succeeded.",
+                                        "type" : "string"
+                                      },
+                                      "text" : {
+                                        "description" : "Text searched by fileContains.",
+                                        "type" : "string"
+                                      },
+                                      "truthy" : {
+                                        "description" : "Expression (or value) that must be truthy."
+                                      }
+                                    },
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "fail" : {
+                                  "description" : "fail step: failure message.",
+                                  "type" : "string"
+                                },
+                                "foreach" : {
+                                  "description" : "foreach step: expression yielding a list, or a literal list.",
+                                  "type" : [
+                                    "string",
+                                    "array"
+                                  ]
+                                },
+                                "id" : {
+                                  "description" : "Unique in the whole document, nested steps included.",
+                                  "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                                  "type" : "string"
+                                },
+                                "if" : {
+                                  "description" : "condition step: expression.",
+                                  "type" : "string"
+                                },
+                                "inputs" : {
+                                  "description" : "agent / subworkflow step: input values.",
+                                  "type" : "object"
+                                },
+                                "into" : {
+                                  "description" : "transform step: variable that also receives the value.",
+                                  "type" : "string"
+                                },
+                                "maxIterations" : {
+                                  "description" : "loop step: mandatory upper bound.",
+                                  "minimum" : 1,
+                                  "type" : "integer"
+                                },
+                                "name" : {
+                                  "description" : "Display name.",
+                                  "type" : "string"
+                                },
+                                "needs" : {
+                                  "description" : "Ids of steps of the same list that must finish first.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "notify" : {
+                                  "description" : "notify step: message.",
+                                  "type" : "string"
+                                },
+                                "objective" : {
+                                  "description" : "agent step: what the agent must achieve.",
+                                  "type" : "string"
+                                },
+                                "onError" : {
+                                  "description" : "Id of a handler step of the same list.",
+                                  "type" : "string"
+                                },
+                                "output" : {
+                                  "description" : "output step: workflow outputs.",
+                                  "type" : "object"
+                                },
+                                "parallel" : {
+                                  "description" : "parallel step: branches, joined implicitly.",
+                                  "items" : {
+                                    "additionalProperties" : false,
+                                    "properties" : {
+                                      "name" : {
+                                        "description" : "Branch name.",
+                                        "type" : "string"
+                                      },
+                                      "steps" : {
+                                        "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                                        "items" : {
+                                          "type" : "object"
+                                        },
+                                        "type" : "array"
+                                      }
+                                    },
+                                    "required" : [
+                                      "name",
+                                      "steps"
+                                    ],
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "retry" : {
+                                  "additionalProperties" : false,
+                                  "properties" : {
+                                    "backoffMultiplier" : {
+                                      "minimum" : 1,
+                                      "type" : "number"
+                                    },
+                                    "backoffSeconds" : {
+                                      "minimum" : 0,
+                                      "type" : "number"
+                                    },
+                                    "force" : {
+                                      "description" : "Retry even when the step is not idempotent.",
+                                      "type" : "boolean"
+                                    },
+                                    "maxAttempts" : {
+                                      "minimum" : 1,
+                                      "type" : "integer"
+                                    }
+                                  },
+                                  "required" : [
+                                    "maxAttempts"
+                                  ],
+                                  "type" : "object"
+                                },
+                                "set" : {
+                                  "description" : "set step: variables to assign.",
+                                  "type" : "object"
+                                },
+                                "steps" : {
+                                  "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                                  "items" : {
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "subworkflow" : {
+                                  "description" : "subworkflow step: id or name of the workflow to run.",
+                                  "type" : "string"
+                                },
+                                "switch" : {
+                                  "description" : "switch step: expression whose value selects a case.",
+                                  "type" : "string"
+                                },
+                                "then" : {
+                                  "description" : "condition step: ids that run when the condition is truthy.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "timeoutSeconds" : {
+                                  "type" : "number"
+                                },
+                                "title" : {
+                                  "description" : "notify step: title.",
+                                  "type" : "string"
+                                },
+                                "tool" : {
+                                  "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                                  "type" : "string"
+                                },
+                                "transform" : {
+                                  "description" : "transform step: expression whose value becomes the step output.",
+                                  "type" : "string"
+                                },
+                                "verify" : {
+                                  "description" : "verify step: assertions checked by the runtime.",
+                                  "items" : {
+                                    "additionalProperties" : false,
+                                    "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                                    "properties" : {
+                                      "dirNonEmpty" : {
+                                        "description" : "Path of a directory that must contain at least one entry.",
+                                        "type" : "string"
+                                      },
+                                      "equals" : {
+                                        "description" : "Two values that must be equal after interpolation.",
+                                        "maxItems" : 2,
+                                        "minItems" : 2,
+                                        "type" : "array"
+                                      },
+                                      "fileContains" : {
+                                        "description" : "Path of a file that must contain `text`.",
+                                        "type" : "string"
+                                      },
+                                      "fileExists" : {
+                                        "description" : "Path that must exist.",
+                                        "type" : "string"
+                                      },
+                                      "fileNonEmpty" : {
+                                        "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                        "type" : "string"
+                                      },
+                                      "stepSucceeded" : {
+                                        "description" : "Id of an upstream step that must have succeeded.",
+                                        "type" : "string"
+                                      },
+                                      "text" : {
+                                        "description" : "Text searched by fileContains.",
+                                        "type" : "string"
+                                      },
+                                      "truthy" : {
+                                        "description" : "Expression (or value) that must be truthy."
+                                      }
+                                    },
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "when" : {
+                                  "description" : "Expression; the step is skipped when it is falsy.",
+                                  "type" : "string"
+                                },
+                                "while" : {
+                                  "description" : "loop step: expression evaluated before every iteration.",
+                                  "type" : "string"
+                                },
+                                "with" : {
+                                  "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                                  "type" : "object"
+                                }
+                              },
+                              "required" : [
+                                "id"
+                              ],
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "subworkflow" : {
+                            "description" : "subworkflow step: id or name of the workflow to run.",
+                            "type" : "string"
+                          },
+                          "switch" : {
+                            "description" : "switch step: expression whose value selects a case.",
+                            "type" : "string"
+                          },
+                          "then" : {
+                            "description" : "condition step: ids that run when the condition is truthy.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "timeoutSeconds" : {
+                            "type" : "number"
+                          },
+                          "title" : {
+                            "description" : "notify step: title.",
+                            "type" : "string"
+                          },
+                          "tool" : {
+                            "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                            "type" : "string"
+                          },
+                          "transform" : {
+                            "description" : "transform step: expression whose value becomes the step output.",
+                            "type" : "string"
+                          },
+                          "verify" : {
+                            "description" : "verify step: assertions checked by the runtime.",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                              "properties" : {
+                                "dirNonEmpty" : {
+                                  "description" : "Path of a directory that must contain at least one entry.",
+                                  "type" : "string"
+                                },
+                                "equals" : {
+                                  "description" : "Two values that must be equal after interpolation.",
+                                  "maxItems" : 2,
+                                  "minItems" : 2,
+                                  "type" : "array"
+                                },
+                                "fileContains" : {
+                                  "description" : "Path of a file that must contain `text`.",
+                                  "type" : "string"
+                                },
+                                "fileExists" : {
+                                  "description" : "Path that must exist.",
+                                  "type" : "string"
+                                },
+                                "fileNonEmpty" : {
+                                  "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                  "type" : "string"
+                                },
+                                "stepSucceeded" : {
+                                  "description" : "Id of an upstream step that must have succeeded.",
+                                  "type" : "string"
+                                },
+                                "text" : {
+                                  "description" : "Text searched by fileContains.",
+                                  "type" : "string"
+                                },
+                                "truthy" : {
+                                  "description" : "Expression (or value) that must be truthy."
+                                }
+                              },
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "when" : {
+                            "description" : "Expression; the step is skipped when it is falsy.",
+                            "type" : "string"
+                          },
+                          "while" : {
+                            "description" : "loop step: expression evaluated before every iteration.",
+                            "type" : "string"
+                          },
+                          "with" : {
+                            "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                            "type" : "object"
+                          }
+                        },
+                        "required" : [
+                          "id"
+                        ],
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    }
+                  },
+                  "required" : [
+                    "name",
+                    "steps"
+                  ],
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "retry" : {
+                "additionalProperties" : false,
+                "properties" : {
+                  "backoffMultiplier" : {
+                    "minimum" : 1,
+                    "type" : "number"
+                  },
+                  "backoffSeconds" : {
+                    "minimum" : 0,
+                    "type" : "number"
+                  },
+                  "force" : {
+                    "description" : "Retry even when the step is not idempotent.",
+                    "type" : "boolean"
+                  },
+                  "maxAttempts" : {
+                    "minimum" : 1,
+                    "type" : "integer"
+                  }
+                },
+                "required" : [
+                  "maxAttempts"
+                ],
+                "type" : "object"
+              },
+              "set" : {
+                "description" : "set step: variables to assign.",
+                "type" : "object"
+              },
+              "steps" : {
+                "description" : "Nested steps (their own `needs` namespace).",
+                "items" : {
+                  "additionalProperties" : false,
+                  "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+                  "properties" : {
+                    "agent" : {
+                      "additionalProperties" : false,
+                      "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                      "properties" : {
+                        "instructions" : {
+                          "type" : "string"
+                        },
+                        "model" : {
+                          "description" : "provider/model",
+                          "type" : "string"
+                        },
+                        "tools" : {
+                          "description" : "Tool ids or family.* patterns.",
+                          "items" : {
+                            "type" : "string"
+                          },
+                          "type" : "array"
+                        }
+                      },
+                      "required" : [
+                        "instructions"
+                      ],
+                      "type" : [
+                        "string",
+                        "object"
+                      ]
+                    },
+                    "approval" : {
+                      "description" : "approval step: message shown to the person.",
+                      "type" : "string"
+                    },
+                    "artifacts" : {
+                      "description" : "output step: paths recorded as run artifacts.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "as" : {
+                      "description" : "foreach step: loop variable name (default item).",
+                      "type" : "string"
+                    },
+                    "cases" : {
+                      "items" : {
+                        "additionalProperties" : false,
+                        "properties" : {
+                          "steps" : {
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "value" : {
+                            "description" : "Value compared with the switch expression."
+                          }
+                        },
+                        "required" : [
+                          "steps",
+                          "value"
+                        ],
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "collect" : {
+                      "description" : "foreach step: body step whose output is collected per iteration.",
+                      "type" : "string"
+                    },
+                    "concurrency" : {
+                      "description" : "foreach step: iterations run at once (default 1).",
+                      "minimum" : 1,
+                      "type" : "integer"
+                    },
+                    "continueOnError" : {
+                      "type" : "boolean"
+                    },
+                    "default" : {
+                      "description" : "switch step: ids that run when no case matches.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "delay" : {
+                      "description" : "delay step: seconds, or an expression yielding seconds.",
+                      "type" : [
+                        "number",
+                        "string"
+                      ]
+                    },
+                    "else" : {
+                      "description" : "condition step: ids that run when the condition is falsy.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "expect" : {
+                      "description" : "agent step: file postconditions checked by the runtime.",
+                      "items" : {
+                        "additionalProperties" : false,
+                        "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                        "properties" : {
+                          "dirNonEmpty" : {
+                            "description" : "Path of a directory that must contain at least one entry.",
+                            "type" : "string"
+                          },
+                          "equals" : {
+                            "description" : "Two values that must be equal after interpolation.",
+                            "maxItems" : 2,
+                            "minItems" : 2,
+                            "type" : "array"
+                          },
+                          "fileContains" : {
+                            "description" : "Path of a file that must contain `text`.",
+                            "type" : "string"
+                          },
+                          "fileExists" : {
+                            "description" : "Path that must exist.",
+                            "type" : "string"
+                          },
+                          "fileNonEmpty" : {
+                            "description" : "Path of a file that must exist and be larger than zero bytes.",
+                            "type" : "string"
+                          },
+                          "stepSucceeded" : {
+                            "description" : "Id of an upstream step that must have succeeded.",
+                            "type" : "string"
+                          },
+                          "text" : {
+                            "description" : "Text searched by fileContains.",
+                            "type" : "string"
+                          },
+                          "truthy" : {
+                            "description" : "Expression (or value) that must be truthy."
+                          }
+                        },
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "fail" : {
+                      "description" : "fail step: failure message.",
+                      "type" : "string"
+                    },
+                    "foreach" : {
+                      "description" : "foreach step: expression yielding a list, or a literal list.",
+                      "type" : [
+                        "string",
+                        "array"
+                      ]
+                    },
+                    "id" : {
+                      "description" : "Unique in the whole document, nested steps included.",
+                      "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                      "type" : "string"
+                    },
+                    "if" : {
+                      "description" : "condition step: expression.",
+                      "type" : "string"
+                    },
+                    "inputs" : {
+                      "description" : "agent / subworkflow step: input values.",
+                      "type" : "object"
+                    },
+                    "into" : {
+                      "description" : "transform step: variable that also receives the value.",
+                      "type" : "string"
+                    },
+                    "maxIterations" : {
+                      "description" : "loop step: mandatory upper bound.",
+                      "minimum" : 1,
+                      "type" : "integer"
+                    },
+                    "name" : {
+                      "description" : "Display name.",
+                      "type" : "string"
+                    },
+                    "needs" : {
+                      "description" : "Ids of steps of the same list that must finish first.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "notify" : {
+                      "description" : "notify step: message.",
+                      "type" : "string"
+                    },
+                    "objective" : {
+                      "description" : "agent step: what the agent must achieve.",
+                      "type" : "string"
+                    },
+                    "onError" : {
+                      "description" : "Id of a handler step of the same list.",
+                      "type" : "string"
+                    },
+                    "output" : {
+                      "description" : "output step: workflow outputs.",
+                      "type" : "object"
+                    },
+                    "parallel" : {
+                      "description" : "parallel step: branches, joined implicitly.",
+                      "items" : {
+                        "additionalProperties" : false,
+                        "properties" : {
+                          "name" : {
+                            "description" : "Branch name.",
+                            "type" : "string"
+                          },
+                          "steps" : {
+                            "description" : "Nested steps (their own `needs` namespace).",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+                              "properties" : {
+                                "agent" : {
+                                  "additionalProperties" : false,
+                                  "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                                  "properties" : {
+                                    "instructions" : {
+                                      "type" : "string"
+                                    },
+                                    "model" : {
+                                      "description" : "provider/model",
+                                      "type" : "string"
+                                    },
+                                    "tools" : {
+                                      "description" : "Tool ids or family.* patterns.",
+                                      "items" : {
+                                        "type" : "string"
+                                      },
+                                      "type" : "array"
+                                    }
+                                  },
+                                  "required" : [
+                                    "instructions"
+                                  ],
+                                  "type" : [
+                                    "string",
+                                    "object"
+                                  ]
+                                },
+                                "approval" : {
+                                  "description" : "approval step: message shown to the person.",
+                                  "type" : "string"
+                                },
+                                "artifacts" : {
+                                  "description" : "output step: paths recorded as run artifacts.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "as" : {
+                                  "description" : "foreach step: loop variable name (default item).",
+                                  "type" : "string"
+                                },
+                                "cases" : {
+                                  "items" : {
+                                    "additionalProperties" : false,
+                                    "properties" : {
+                                      "steps" : {
+                                        "items" : {
+                                          "type" : "string"
+                                        },
+                                        "type" : "array"
+                                      },
+                                      "value" : {
+                                        "description" : "Value compared with the switch expression."
+                                      }
+                                    },
+                                    "required" : [
+                                      "steps",
+                                      "value"
+                                    ],
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "collect" : {
+                                  "description" : "foreach step: body step whose output is collected per iteration.",
+                                  "type" : "string"
+                                },
+                                "concurrency" : {
+                                  "description" : "foreach step: iterations run at once (default 1).",
+                                  "minimum" : 1,
+                                  "type" : "integer"
+                                },
+                                "continueOnError" : {
+                                  "type" : "boolean"
+                                },
+                                "default" : {
+                                  "description" : "switch step: ids that run when no case matches.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "delay" : {
+                                  "description" : "delay step: seconds, or an expression yielding seconds.",
+                                  "type" : [
+                                    "number",
+                                    "string"
+                                  ]
+                                },
+                                "else" : {
+                                  "description" : "condition step: ids that run when the condition is falsy.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "expect" : {
+                                  "description" : "agent step: file postconditions checked by the runtime.",
+                                  "items" : {
+                                    "additionalProperties" : false,
+                                    "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                                    "properties" : {
+                                      "dirNonEmpty" : {
+                                        "description" : "Path of a directory that must contain at least one entry.",
+                                        "type" : "string"
+                                      },
+                                      "equals" : {
+                                        "description" : "Two values that must be equal after interpolation.",
+                                        "maxItems" : 2,
+                                        "minItems" : 2,
+                                        "type" : "array"
+                                      },
+                                      "fileContains" : {
+                                        "description" : "Path of a file that must contain `text`.",
+                                        "type" : "string"
+                                      },
+                                      "fileExists" : {
+                                        "description" : "Path that must exist.",
+                                        "type" : "string"
+                                      },
+                                      "fileNonEmpty" : {
+                                        "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                        "type" : "string"
+                                      },
+                                      "stepSucceeded" : {
+                                        "description" : "Id of an upstream step that must have succeeded.",
+                                        "type" : "string"
+                                      },
+                                      "text" : {
+                                        "description" : "Text searched by fileContains.",
+                                        "type" : "string"
+                                      },
+                                      "truthy" : {
+                                        "description" : "Expression (or value) that must be truthy."
+                                      }
+                                    },
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "fail" : {
+                                  "description" : "fail step: failure message.",
+                                  "type" : "string"
+                                },
+                                "foreach" : {
+                                  "description" : "foreach step: expression yielding a list, or a literal list.",
+                                  "type" : [
+                                    "string",
+                                    "array"
+                                  ]
+                                },
+                                "id" : {
+                                  "description" : "Unique in the whole document, nested steps included.",
+                                  "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                                  "type" : "string"
+                                },
+                                "if" : {
+                                  "description" : "condition step: expression.",
+                                  "type" : "string"
+                                },
+                                "inputs" : {
+                                  "description" : "agent / subworkflow step: input values.",
+                                  "type" : "object"
+                                },
+                                "into" : {
+                                  "description" : "transform step: variable that also receives the value.",
+                                  "type" : "string"
+                                },
+                                "maxIterations" : {
+                                  "description" : "loop step: mandatory upper bound.",
+                                  "minimum" : 1,
+                                  "type" : "integer"
+                                },
+                                "name" : {
+                                  "description" : "Display name.",
+                                  "type" : "string"
+                                },
+                                "needs" : {
+                                  "description" : "Ids of steps of the same list that must finish first.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "notify" : {
+                                  "description" : "notify step: message.",
+                                  "type" : "string"
+                                },
+                                "objective" : {
+                                  "description" : "agent step: what the agent must achieve.",
+                                  "type" : "string"
+                                },
+                                "onError" : {
+                                  "description" : "Id of a handler step of the same list.",
+                                  "type" : "string"
+                                },
+                                "output" : {
+                                  "description" : "output step: workflow outputs.",
+                                  "type" : "object"
+                                },
+                                "parallel" : {
+                                  "description" : "parallel step: branches, joined implicitly.",
+                                  "items" : {
+                                    "additionalProperties" : false,
+                                    "properties" : {
+                                      "name" : {
+                                        "description" : "Branch name.",
+                                        "type" : "string"
+                                      },
+                                      "steps" : {
+                                        "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                                        "items" : {
+                                          "type" : "object"
+                                        },
+                                        "type" : "array"
+                                      }
+                                    },
+                                    "required" : [
+                                      "name",
+                                      "steps"
+                                    ],
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "retry" : {
+                                  "additionalProperties" : false,
+                                  "properties" : {
+                                    "backoffMultiplier" : {
+                                      "minimum" : 1,
+                                      "type" : "number"
+                                    },
+                                    "backoffSeconds" : {
+                                      "minimum" : 0,
+                                      "type" : "number"
+                                    },
+                                    "force" : {
+                                      "description" : "Retry even when the step is not idempotent.",
+                                      "type" : "boolean"
+                                    },
+                                    "maxAttempts" : {
+                                      "minimum" : 1,
+                                      "type" : "integer"
+                                    }
+                                  },
+                                  "required" : [
+                                    "maxAttempts"
+                                  ],
+                                  "type" : "object"
+                                },
+                                "set" : {
+                                  "description" : "set step: variables to assign.",
+                                  "type" : "object"
+                                },
+                                "steps" : {
+                                  "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                                  "items" : {
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "subworkflow" : {
+                                  "description" : "subworkflow step: id or name of the workflow to run.",
+                                  "type" : "string"
+                                },
+                                "switch" : {
+                                  "description" : "switch step: expression whose value selects a case.",
+                                  "type" : "string"
+                                },
+                                "then" : {
+                                  "description" : "condition step: ids that run when the condition is truthy.",
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "timeoutSeconds" : {
+                                  "type" : "number"
+                                },
+                                "title" : {
+                                  "description" : "notify step: title.",
+                                  "type" : "string"
+                                },
+                                "tool" : {
+                                  "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                                  "type" : "string"
+                                },
+                                "transform" : {
+                                  "description" : "transform step: expression whose value becomes the step output.",
+                                  "type" : "string"
+                                },
+                                "verify" : {
+                                  "description" : "verify step: assertions checked by the runtime.",
+                                  "items" : {
+                                    "additionalProperties" : false,
+                                    "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                                    "properties" : {
+                                      "dirNonEmpty" : {
+                                        "description" : "Path of a directory that must contain at least one entry.",
+                                        "type" : "string"
+                                      },
+                                      "equals" : {
+                                        "description" : "Two values that must be equal after interpolation.",
+                                        "maxItems" : 2,
+                                        "minItems" : 2,
+                                        "type" : "array"
+                                      },
+                                      "fileContains" : {
+                                        "description" : "Path of a file that must contain `text`.",
+                                        "type" : "string"
+                                      },
+                                      "fileExists" : {
+                                        "description" : "Path that must exist.",
+                                        "type" : "string"
+                                      },
+                                      "fileNonEmpty" : {
+                                        "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                        "type" : "string"
+                                      },
+                                      "stepSucceeded" : {
+                                        "description" : "Id of an upstream step that must have succeeded.",
+                                        "type" : "string"
+                                      },
+                                      "text" : {
+                                        "description" : "Text searched by fileContains.",
+                                        "type" : "string"
+                                      },
+                                      "truthy" : {
+                                        "description" : "Expression (or value) that must be truthy."
+                                      }
+                                    },
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                },
+                                "when" : {
+                                  "description" : "Expression; the step is skipped when it is falsy.",
+                                  "type" : "string"
+                                },
+                                "while" : {
+                                  "description" : "loop step: expression evaluated before every iteration.",
+                                  "type" : "string"
+                                },
+                                "with" : {
+                                  "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                                  "type" : "object"
+                                }
+                              },
+                              "required" : [
+                                "id"
+                              ],
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          }
+                        },
+                        "required" : [
+                          "name",
+                          "steps"
+                        ],
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "retry" : {
+                      "additionalProperties" : false,
+                      "properties" : {
+                        "backoffMultiplier" : {
+                          "minimum" : 1,
+                          "type" : "number"
+                        },
+                        "backoffSeconds" : {
+                          "minimum" : 0,
+                          "type" : "number"
+                        },
+                        "force" : {
+                          "description" : "Retry even when the step is not idempotent.",
+                          "type" : "boolean"
+                        },
+                        "maxAttempts" : {
+                          "minimum" : 1,
+                          "type" : "integer"
+                        }
+                      },
+                      "required" : [
+                        "maxAttempts"
+                      ],
+                      "type" : "object"
+                    },
+                    "set" : {
+                      "description" : "set step: variables to assign.",
+                      "type" : "object"
+                    },
+                    "steps" : {
+                      "description" : "Nested steps (their own `needs` namespace).",
+                      "items" : {
+                        "additionalProperties" : false,
+                        "description" : "A step. Exactly one kind key: tool, agent, if, switch, foreach, parallel, while, approval, delay, set, transform, verify, subworkflow, notify, fail, output.",
+                        "properties" : {
+                          "agent" : {
+                            "additionalProperties" : false,
+                            "description" : "agent step: profile name, or inline {instructions, model?, tools?}.",
+                            "properties" : {
+                              "instructions" : {
+                                "type" : "string"
+                              },
+                              "model" : {
+                                "description" : "provider/model",
+                                "type" : "string"
+                              },
+                              "tools" : {
+                                "description" : "Tool ids or family.* patterns.",
+                                "items" : {
+                                  "type" : "string"
+                                },
+                                "type" : "array"
+                              }
+                            },
+                            "required" : [
+                              "instructions"
+                            ],
+                            "type" : [
+                              "string",
+                              "object"
+                            ]
+                          },
+                          "approval" : {
+                            "description" : "approval step: message shown to the person.",
+                            "type" : "string"
+                          },
+                          "artifacts" : {
+                            "description" : "output step: paths recorded as run artifacts.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "as" : {
+                            "description" : "foreach step: loop variable name (default item).",
+                            "type" : "string"
+                          },
+                          "cases" : {
+                            "items" : {
+                              "additionalProperties" : false,
+                              "properties" : {
+                                "steps" : {
+                                  "items" : {
+                                    "type" : "string"
+                                  },
+                                  "type" : "array"
+                                },
+                                "value" : {
+                                  "description" : "Value compared with the switch expression."
+                                }
+                              },
+                              "required" : [
+                                "steps",
+                                "value"
+                              ],
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "collect" : {
+                            "description" : "foreach step: body step whose output is collected per iteration.",
+                            "type" : "string"
+                          },
+                          "concurrency" : {
+                            "description" : "foreach step: iterations run at once (default 1).",
+                            "minimum" : 1,
+                            "type" : "integer"
+                          },
+                          "continueOnError" : {
+                            "type" : "boolean"
+                          },
+                          "default" : {
+                            "description" : "switch step: ids that run when no case matches.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "delay" : {
+                            "description" : "delay step: seconds, or an expression yielding seconds.",
+                            "type" : [
+                              "number",
+                              "string"
+                            ]
+                          },
+                          "else" : {
+                            "description" : "condition step: ids that run when the condition is falsy.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "expect" : {
+                            "description" : "agent step: file postconditions checked by the runtime.",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                              "properties" : {
+                                "dirNonEmpty" : {
+                                  "description" : "Path of a directory that must contain at least one entry.",
+                                  "type" : "string"
+                                },
+                                "equals" : {
+                                  "description" : "Two values that must be equal after interpolation.",
+                                  "maxItems" : 2,
+                                  "minItems" : 2,
+                                  "type" : "array"
+                                },
+                                "fileContains" : {
+                                  "description" : "Path of a file that must contain `text`.",
+                                  "type" : "string"
+                                },
+                                "fileExists" : {
+                                  "description" : "Path that must exist.",
+                                  "type" : "string"
+                                },
+                                "fileNonEmpty" : {
+                                  "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                  "type" : "string"
+                                },
+                                "stepSucceeded" : {
+                                  "description" : "Id of an upstream step that must have succeeded.",
+                                  "type" : "string"
+                                },
+                                "text" : {
+                                  "description" : "Text searched by fileContains.",
+                                  "type" : "string"
+                                },
+                                "truthy" : {
+                                  "description" : "Expression (or value) that must be truthy."
+                                }
+                              },
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "fail" : {
+                            "description" : "fail step: failure message.",
+                            "type" : "string"
+                          },
+                          "foreach" : {
+                            "description" : "foreach step: expression yielding a list, or a literal list.",
+                            "type" : [
+                              "string",
+                              "array"
+                            ]
+                          },
+                          "id" : {
+                            "description" : "Unique in the whole document, nested steps included.",
+                            "pattern" : "^[A-Za-z_][A-Za-z0-9_-]*$",
+                            "type" : "string"
+                          },
+                          "if" : {
+                            "description" : "condition step: expression.",
+                            "type" : "string"
+                          },
+                          "inputs" : {
+                            "description" : "agent / subworkflow step: input values.",
+                            "type" : "object"
+                          },
+                          "into" : {
+                            "description" : "transform step: variable that also receives the value.",
+                            "type" : "string"
+                          },
+                          "maxIterations" : {
+                            "description" : "loop step: mandatory upper bound.",
+                            "minimum" : 1,
+                            "type" : "integer"
+                          },
+                          "name" : {
+                            "description" : "Display name.",
+                            "type" : "string"
+                          },
+                          "needs" : {
+                            "description" : "Ids of steps of the same list that must finish first.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "notify" : {
+                            "description" : "notify step: message.",
+                            "type" : "string"
+                          },
+                          "objective" : {
+                            "description" : "agent step: what the agent must achieve.",
+                            "type" : "string"
+                          },
+                          "onError" : {
+                            "description" : "Id of a handler step of the same list.",
+                            "type" : "string"
+                          },
+                          "output" : {
+                            "description" : "output step: workflow outputs.",
+                            "type" : "object"
+                          },
+                          "parallel" : {
+                            "description" : "parallel step: branches, joined implicitly.",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "properties" : {
+                                "name" : {
+                                  "description" : "Branch name.",
+                                  "type" : "string"
+                                },
+                                "steps" : {
+                                  "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                                  "items" : {
+                                    "type" : "object"
+                                  },
+                                  "type" : "array"
+                                }
+                              },
+                              "required" : [
+                                "name",
+                                "steps"
+                              ],
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "retry" : {
+                            "additionalProperties" : false,
+                            "properties" : {
+                              "backoffMultiplier" : {
+                                "minimum" : 1,
+                                "type" : "number"
+                              },
+                              "backoffSeconds" : {
+                                "minimum" : 0,
+                                "type" : "number"
+                              },
+                              "force" : {
+                                "description" : "Retry even when the step is not idempotent.",
+                                "type" : "boolean"
+                              },
+                              "maxAttempts" : {
+                                "minimum" : 1,
+                                "type" : "integer"
+                              }
+                            },
+                            "required" : [
+                              "maxAttempts"
+                            ],
+                            "type" : "object"
+                          },
+                          "set" : {
+                            "description" : "set step: variables to assign.",
+                            "type" : "object"
+                          },
+                          "steps" : {
+                            "description" : "Nested steps. At this depth the schema accepts any object; the ORIX validator still checks them.",
+                            "items" : {
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "subworkflow" : {
+                            "description" : "subworkflow step: id or name of the workflow to run.",
+                            "type" : "string"
+                          },
+                          "switch" : {
+                            "description" : "switch step: expression whose value selects a case.",
+                            "type" : "string"
+                          },
+                          "then" : {
+                            "description" : "condition step: ids that run when the condition is truthy.",
+                            "items" : {
+                              "type" : "string"
+                            },
+                            "type" : "array"
+                          },
+                          "timeoutSeconds" : {
+                            "type" : "number"
+                          },
+                          "title" : {
+                            "description" : "notify step: title.",
+                            "type" : "string"
+                          },
+                          "tool" : {
+                            "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                            "type" : "string"
+                          },
+                          "transform" : {
+                            "description" : "transform step: expression whose value becomes the step output.",
+                            "type" : "string"
+                          },
+                          "verify" : {
+                            "description" : "verify step: assertions checked by the runtime.",
+                            "items" : {
+                              "additionalProperties" : false,
+                              "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                              "properties" : {
+                                "dirNonEmpty" : {
+                                  "description" : "Path of a directory that must contain at least one entry.",
+                                  "type" : "string"
+                                },
+                                "equals" : {
+                                  "description" : "Two values that must be equal after interpolation.",
+                                  "maxItems" : 2,
+                                  "minItems" : 2,
+                                  "type" : "array"
+                                },
+                                "fileContains" : {
+                                  "description" : "Path of a file that must contain `text`.",
+                                  "type" : "string"
+                                },
+                                "fileExists" : {
+                                  "description" : "Path that must exist.",
+                                  "type" : "string"
+                                },
+                                "fileNonEmpty" : {
+                                  "description" : "Path of a file that must exist and be larger than zero bytes.",
+                                  "type" : "string"
+                                },
+                                "stepSucceeded" : {
+                                  "description" : "Id of an upstream step that must have succeeded.",
+                                  "type" : "string"
+                                },
+                                "text" : {
+                                  "description" : "Text searched by fileContains.",
+                                  "type" : "string"
+                                },
+                                "truthy" : {
+                                  "description" : "Expression (or value) that must be truthy."
+                                }
+                              },
+                              "type" : "object"
+                            },
+                            "type" : "array"
+                          },
+                          "when" : {
+                            "description" : "Expression; the step is skipped when it is falsy.",
+                            "type" : "string"
+                          },
+                          "while" : {
+                            "description" : "loop step: expression evaluated before every iteration.",
+                            "type" : "string"
+                          },
+                          "with" : {
+                            "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                            "type" : "object"
+                          }
+                        },
+                        "required" : [
+                          "id"
+                        ],
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "subworkflow" : {
+                      "description" : "subworkflow step: id or name of the workflow to run.",
+                      "type" : "string"
+                    },
+                    "switch" : {
+                      "description" : "switch step: expression whose value selects a case.",
+                      "type" : "string"
+                    },
+                    "then" : {
+                      "description" : "condition step: ids that run when the condition is truthy.",
+                      "items" : {
+                        "type" : "string"
+                      },
+                      "type" : "array"
+                    },
+                    "timeoutSeconds" : {
+                      "type" : "number"
+                    },
+                    "title" : {
+                      "description" : "notify step: title.",
+                      "type" : "string"
+                    },
+                    "tool" : {
+                      "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                      "type" : "string"
+                    },
+                    "transform" : {
+                      "description" : "transform step: expression whose value becomes the step output.",
+                      "type" : "string"
+                    },
+                    "verify" : {
+                      "description" : "verify step: assertions checked by the runtime.",
+                      "items" : {
+                        "additionalProperties" : false,
+                        "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                        "properties" : {
+                          "dirNonEmpty" : {
+                            "description" : "Path of a directory that must contain at least one entry.",
+                            "type" : "string"
+                          },
+                          "equals" : {
+                            "description" : "Two values that must be equal after interpolation.",
+                            "maxItems" : 2,
+                            "minItems" : 2,
+                            "type" : "array"
+                          },
+                          "fileContains" : {
+                            "description" : "Path of a file that must contain `text`.",
+                            "type" : "string"
+                          },
+                          "fileExists" : {
+                            "description" : "Path that must exist.",
+                            "type" : "string"
+                          },
+                          "fileNonEmpty" : {
+                            "description" : "Path of a file that must exist and be larger than zero bytes.",
+                            "type" : "string"
+                          },
+                          "stepSucceeded" : {
+                            "description" : "Id of an upstream step that must have succeeded.",
+                            "type" : "string"
+                          },
+                          "text" : {
+                            "description" : "Text searched by fileContains.",
+                            "type" : "string"
+                          },
+                          "truthy" : {
+                            "description" : "Expression (or value) that must be truthy."
+                          }
+                        },
+                        "type" : "object"
+                      },
+                      "type" : "array"
+                    },
+                    "when" : {
+                      "description" : "Expression; the step is skipped when it is falsy.",
+                      "type" : "string"
+                    },
+                    "while" : {
+                      "description" : "loop step: expression evaluated before every iteration.",
+                      "type" : "string"
+                    },
+                    "with" : {
+                      "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                      "type" : "object"
+                    }
+                  },
+                  "required" : [
+                    "id"
+                  ],
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "subworkflow" : {
+                "description" : "subworkflow step: id or name of the workflow to run.",
+                "type" : "string"
+              },
+              "switch" : {
+                "description" : "switch step: expression whose value selects a case.",
+                "type" : "string"
+              },
+              "then" : {
+                "description" : "condition step: ids that run when the condition is truthy.",
+                "items" : {
+                  "type" : "string"
+                },
+                "type" : "array"
+              },
+              "timeoutSeconds" : {
+                "type" : "number"
+              },
+              "title" : {
+                "description" : "notify step: title.",
+                "type" : "string"
+              },
+              "tool" : {
+                "description" : "tool step: canonical tool identifier, for example filesystem.list.",
+                "type" : "string"
+              },
+              "transform" : {
+                "description" : "transform step: expression whose value becomes the step output.",
+                "type" : "string"
+              },
+              "verify" : {
+                "description" : "verify step: assertions checked by the runtime.",
+                "items" : {
+                  "additionalProperties" : false,
+                  "description" : "One assertion: exactly one of fileExists, fileNonEmpty, fileContains (+ text), dirNonEmpty, equals, truthy, stepSucceeded.",
+                  "properties" : {
+                    "dirNonEmpty" : {
+                      "description" : "Path of a directory that must contain at least one entry.",
+                      "type" : "string"
+                    },
+                    "equals" : {
+                      "description" : "Two values that must be equal after interpolation.",
+                      "maxItems" : 2,
+                      "minItems" : 2,
+                      "type" : "array"
+                    },
+                    "fileContains" : {
+                      "description" : "Path of a file that must contain `text`.",
+                      "type" : "string"
+                    },
+                    "fileExists" : {
+                      "description" : "Path that must exist.",
+                      "type" : "string"
+                    },
+                    "fileNonEmpty" : {
+                      "description" : "Path of a file that must exist and be larger than zero bytes.",
+                      "type" : "string"
+                    },
+                    "stepSucceeded" : {
+                      "description" : "Id of an upstream step that must have succeeded.",
+                      "type" : "string"
+                    },
+                    "text" : {
+                      "description" : "Text searched by fileContains.",
+                      "type" : "string"
+                    },
+                    "truthy" : {
+                      "description" : "Expression (or value) that must be truthy."
+                    }
+                  },
+                  "type" : "object"
+                },
+                "type" : "array"
+              },
+              "when" : {
+                "description" : "Expression; the step is skipped when it is falsy.",
+                "type" : "string"
+              },
+              "while" : {
+                "description" : "loop step: expression evaluated before every iteration.",
+                "type" : "string"
+              },
+              "with" : {
+                "description" : "tool step: arguments. Strings may contain ${{ … }}.",
+                "type" : "object"
+              }
+            },
+            "required" : [
+              "id"
+            ],
+            "type" : "object"
+          },
+          "type" : "array"
+        },
+        "triggers" : {
+          "items" : {
+            "additionalProperties" : false,
+            "properties" : {
+              "at" : {
+                "description" : "once: ISO 8601 date-time.",
+                "type" : "string"
+              },
+              "bundleID" : {
+                "description" : "appLaunch: bundle identifier.",
+                "type" : "string"
+              },
+              "cron" : {
+                "description" : "schedule: five-field cron expression.",
+                "type" : "string"
+              },
+              "debounceSeconds" : {
+                "description" : "fileChange: quiet period before the run starts.",
+                "minimum" : 0,
+                "type" : "number"
+              },
+              "glob" : {
+                "description" : "fileChange: file name pattern.",
+                "type" : "string"
+              },
+              "path" : {
+                "description" : "fileChange: watched path.",
+                "type" : "string"
+              },
+              "seconds" : {
+                "description" : "interval: period in seconds.",
+                "type" : "number"
+              },
+              "timezone" : {
+                "description" : "schedule: IANA time zone.",
+                "type" : "string"
+              },
+              "type" : {
+                "enum" : [
+                  "manual",
+                  "schedule",
+                  "once",
+                  "interval",
+                  "fileChange",
+                  "login",
+                  "appLaunch"
+                ],
+                "type" : "string"
+              }
+            },
+            "required" : [
+              "type"
+            ],
+            "type" : "object"
+          },
+          "type" : "array"
+        },
+        "variables" : {
+          "description" : "Initial variables.",
+          "type" : "object"
+        }
+      },
+      "required" : [
+        "steps"
+      ],
+      "type" : "object"
+    }
+  },
+  "required" : [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "title" : "ORIX OS Automation workflow (orix.ai/v1)",
+  "type" : "object"
+}

@@ -1,0 +1,107 @@
+# ORIX OS Automation
+# File: project.yml
+# Description: XcodeGen project definition (macOS app + UI tests). All logic lives in Packages/.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+name: ORIXAutomation
+options:
+  bundleIdPrefix: ai.spboucher.orix
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+packages:
+  ORIXCore: { path: Packages/ORIXCore }
+  ORIXServices: { path: Packages/ORIXServices }
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: 3YM54G49SN
+    DEAD_CODE_STRIPPING: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    ENABLE_HARDENED_RUNTIME: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+      CODE_SIGN_STYLE: Automatic
+    Release:
+      SWIFT_COMPILATION_MODE: wholemodule
+      CODE_SIGN_STYLE: Manual
+      CODE_SIGN_IDENTITY: "Developer ID Application"
+      CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+      OTHER_CODE_SIGN_FLAGS: "--timestamp"
+      ONLY_ACTIVE_ARCH: NO
+targets:
+  ORIXAutomation:
+    type: application
+    platform: macOS
+    sources:
+      - path: App/Sources
+      - path: App/Resources
+        excludes: ["LaunchAgents/**"]
+      - path: App/Resources/LaunchAgents
+        buildPhase:
+          copyFiles:
+            destination: wrapper
+            subpath: Contents/Library/LaunchAgents
+    dependencies:
+      - package: ORIXCore
+        product: ORIXCore
+      - package: ORIXServices
+        product: ORIXServices
+    entitlements:
+      path: App/ORIXAutomation.entitlements
+      properties:
+        com.apple.security.automation.apple-events: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.spboucher.orix.automation
+        PRODUCT_NAME: ORIX OS Automation
+        PRODUCT_MODULE_NAME: ORIXAutomation
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: ORIX OS Automation
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Simon-Pierre Boucher"
+        INFOPLIST_KEY_NSPrincipalClass: NSApplication
+        INFOPLIST_KEY_NSAppleEventsUsageDescription: "ORIX OS Automation sends Apple Events to the applications you allow, to carry out the automations you start."
+        INFOPLIST_KEY_NSDesktopFolderUsageDescription: "ORIX OS Automation reads and writes files in the folders you grant to an automation."
+        INFOPLIST_KEY_NSDocumentsFolderUsageDescription: "ORIX OS Automation reads and writes files in the folders you grant to an automation."
+        INFOPLIST_KEY_NSDownloadsFolderUsageDescription: "ORIX OS Automation reads and writes files in the folders you grant to an automation."
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        COMBINE_HIDPI_IMAGES: YES
+  ORIXAutomationUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: ORIXAutomation
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.spboucher.orix.automation.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: ORIXAutomation
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "Apple Development"
+        ENABLE_HARDENED_RUNTIME: NO
+schemes:
+  ORIXAutomation:
+    build:
+      targets:
+        ORIXAutomation: all
+        ORIXAutomationUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - ORIXAutomationUITests
+    archive:
+      config: Release

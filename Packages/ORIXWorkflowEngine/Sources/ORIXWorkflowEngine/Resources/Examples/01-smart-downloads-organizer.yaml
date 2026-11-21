@@ -1,0 +1,128 @@
+# ORIX OS Automation
+# File: Workflows/Examples/01-smart-downloads-organizer.yaml
+# Description: Built-in automation: sorts the files of a folder into category subfolders, moving and never deleting.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - Only the top level of the source folder is organised; subfolders are left where they are.
+# - Files are moved, never deleted and never overwritten (overwrite: false): a name collision fails that move.
+# - The category comes from the file extension only (see spec.variables.categories); unknown extensions go to "Other".
+# - The `delete` permission on the source folder is what moving a file out of it requires; no delete tool is called.
+# - Tool argument names and output fields (entries[].name/path/isDirectory) are to be reconciled with the real filesystem tools.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: smart-downloads-organizer
+  name: Smart Downloads Organizer
+  description: >-
+    Sorts the files at the top level of a folder into category subfolders (Documents, Images, Archives, …)
+    chosen from their extension. Files are moved after an approval, never deleted, and the run verifies
+    that every file arrived.
+  tags: [files, organise, downloads]
+spec:
+  triggers:
+    - type: manual
+  parameters:
+    - name: source
+      type: path
+      default: ~/ORIX Samples/smart-downloads-organizer/Downloads
+      description: Folder to organise.
+    - name: destination
+      type: path
+      default: ~/ORIX Samples/smart-downloads-organizer/Sorted
+      description: Folder that receives one subfolder per category.
+  permissions:
+    filesystem:
+      read: ["${{ params.source }}", "${{ params.destination }}"]
+      write: ["${{ params.destination }}"]
+      delete: ["${{ params.source }}"]
+    notifications: true
+  budget:
+    maxDurationSeconds: 600
+    maxToolCalls: 2000
+  variables:
+    categories:
+      .pdf: Documents
+      .doc: Documents
+      .docx: Documents
+      .txt: Documents
+      .md: Documents
+      .pages: Documents
+      .csv: Spreadsheets
+      .xlsx: Spreadsheets
+      .numbers: Spreadsheets
+      .png: Images
+      .jpg: Images
+      .jpeg: Images
+      .heic: Images
+      .gif: Images
+      .zip: Archives
+      .dmg: Archives
+      .tar: Archives
+      .gz: Archives
+      .mp3: Audio
+      .m4a: Audio
+      .wav: Audio
+      .mp4: Video
+      .mov: Video
+  steps:
+    - id: list
+      name: List the source folder
+      tool: filesystem.list
+      with:
+        path: ${{ params.source }}
+        recursive: false
+    - id: files
+      name: Keep files only
+      needs: [list]
+      transform: ${{ filter(steps.list.output.entries, e => !e.isDirectory) }}
+    - id: confirm
+      name: Ask before moving
+      needs: [files]
+      approval: Move ${{ len(steps.files.output) }} file(s) from ${{ params.source }} into category folders under ${{ params.destination }}?
+    - id: organize
+      name: Move each file to its category
+      needs: [confirm]
+      foreach: ${{ steps.files.output }}
+      as: file
+      concurrency: 1
+      collect: move
+      steps:
+        - id: category
+          transform: ${{ default(vars.categories[lower(extname(file.name))], "Other") }}
+        - id: makeFolder
+          needs: [category]
+          tool: filesystem.mkdir
+          with:
+            path: ${{ joinPath(params.destination, steps.category.output) }}
+        - id: move
+          needs: [makeFolder]
+          tool: filesystem.move
+          with:
+            source: ${{ file.path }}
+            destination: ${{ joinPath(params.destination, steps.category.output, file.name) }}
+            overwrite: false
+    - id: remaining
+      name: List what is left in the source
+      needs: [organize]
+      tool: filesystem.list
+      with:
+        path: ${{ params.source }}
+        recursive: false
+    - id: check
+      name: Verify every file was moved
+      needs: [organize, remaining]
+      verify:
+        - equals: ["${{ steps.organize.output.count }}", "${{ len(steps.files.output) }}"]
+        - equals: ["${{ count(steps.remaining.output.entries, e => !e.isDirectory) }}", 0]
+    - id: done
+      needs: [check]
+      notify: Moved ${{ steps.organize.output.count }} file(s) into ${{ params.destination }}.
+      title: Downloads organised
+    - id: result
+      needs: [check]
+      output:
+        moved: ${{ steps.organize.output.count }}
+        destination: ${{ params.destination }}

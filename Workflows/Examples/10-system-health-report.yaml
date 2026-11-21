@@ -1,0 +1,127 @@
+# ORIX OS Automation
+# File: Workflows/Examples/10-system-health-report.yaml
+# Description: Built-in automation: collects read-only system facts in parallel and writes a local health report.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - Read-only observation: nothing is cleaned, quit or changed. The only write is the report file.
+# - Values are what the system tools report at the moment of the run (a snapshot, not a trend).
+# - The low-disk notification compares the free fraction of the startup volume with `minFreeFraction`.
+# - Sections are written as JSON blocks; field names (freeBytes, totalBytes, …) are to be reconciled with the real system tools.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: system-health-report
+  name: Local system health report
+  description: >-
+    Collects system information, disk usage, the busiest processes, power state and network state at the
+    same time, writes them into a dated Markdown report and warns when the startup disk is nearly full.
+  tags: [system, health, report]
+spec:
+  triggers:
+    - type: manual
+    - type: schedule
+      cron: "0 12 * * *"
+  parameters:
+    - name: outputFolder
+      type: path
+      default: ~/ORIX Samples/system-health-report/Reports
+      description: Folder that receives the report.
+    - name: minFreeFraction
+      type: number
+      default: 0.1
+      description: Warn when less than this fraction of the startup disk is free.
+  permissions:
+    filesystem:
+      write: ["${{ params.outputFolder }}"]
+    notifications: true
+  budget:
+    maxDurationSeconds: 180
+    maxToolCalls: 15
+  steps:
+    - id: paths
+      set:
+        report: ${{ params.outputFolder }}/health-${{ env.DATE }}.md
+    - id: prepare
+      tool: filesystem.mkdir
+      with:
+        path: ${{ params.outputFolder }}
+    - id: collect
+      name: Collect facts in parallel
+      parallel:
+        - name: machine
+          steps:
+            - id: info
+              tool: system.info
+        - name: disk
+          steps:
+            - id: disk
+              tool: system.diskUsage
+              with:
+                path: /
+        - name: processes
+          steps:
+            - id: processes
+              tool: system.processes
+              with:
+                limit: 10
+                sortBy: cpu
+        - name: power
+          steps:
+            - id: power
+              tool: system.powerState
+        - name: network
+          steps:
+            - id: network
+              tool: system.networkState
+    - id: freeFraction
+      needs: [collect]
+      transform: ${{ steps.collect.output.disk.disk.freeBytes / steps.collect.output.disk.disk.totalBytes }}
+    - id: write
+      name: Write the report
+      needs: [paths, prepare, freeFraction]
+      tool: filesystem.write
+      with:
+        path: ${{ vars.report }}
+        overwrite: true
+        content: |
+          # System health — ${{ env.DATETIME }}
+
+          Free space on the startup disk: ${{ steps.freeFraction.output * 100 }} %
+
+          ## Machine
+          ${{ toJSON(steps.collect.output.machine.info) }}
+
+          ## Disk
+          ${{ toJSON(steps.collect.output.disk.disk) }}
+
+          ## Busiest processes
+          ${{ toJSON(steps.collect.output.processes.processes) }}
+
+          ## Power
+          ${{ toJSON(steps.collect.output.power.power) }}
+
+          ## Network
+          ${{ toJSON(steps.collect.output.network.network) }}
+    - id: lowDisk
+      needs: [freeFraction]
+      if: ${{ steps.freeFraction.output < params.minFreeFraction }}
+      then: [warn]
+    - id: warn
+      notify: Less than ${{ params.minFreeFraction * 100 }} % of the startup disk is free.
+      title: System health
+    - id: check
+      needs: [write]
+      verify:
+        - fileContains: ${{ vars.report }}
+          text: "## Network"
+        - truthy: ${{ steps.freeFraction.output > 0 }}
+    - id: result
+      needs: [check]
+      output:
+        report: ${{ vars.report }}
+        freeFraction: ${{ steps.freeFraction.output }}
+      artifacts:
+        - ${{ vars.report }}

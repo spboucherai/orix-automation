@@ -1,0 +1,120 @@
+// ORIX OS Automation
+// File: App/Sources/DesignSystem/Theme.swift
+// Description: Design tokens: adaptive graphite surfaces, violet/blue accents, status colours, spacing, radii, type scale and motion that respects Reduce Motion.
+//
+// Author: Simon-Pierre Boucher
+// Contact: contact@spboucher.ai
+import AppKit
+import ORIXCore
+import SwiftUI
+
+extension Color {
+    /// A colour that follows the window's appearance (light, dark, high contrast).
+    init(light: NSColor, dark: NSColor) {
+        self.init(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .vibrantDark, .accessibilityHighContrastDarkAqua]) != nil ? dark : light
+        })
+    }
+    fileprivate static func hex(_ v: UInt32, _ a: CGFloat = 1) -> NSColor {
+        NSColor(srgbRed: CGFloat((v >> 16) & 0xFF) / 255, green: CGFloat((v >> 8) & 0xFF) / 255, blue: CGFloat(v & 0xFF) / 255, alpha: a)
+    }
+}
+
+enum Theme {
+    // Surfaces
+    static let canvas = Color(light: Color.hex(0xF4F4F7), dark: Color.hex(0x0E0E12))
+    static let surface = Color(light: Color.hex(0xFFFFFF), dark: Color.hex(0x17171D))
+    static let surfaceRaised = Color(light: Color.hex(0xFAFAFC), dark: Color.hex(0x1E1E26))
+    static let surfaceSunken = Color(light: Color.hex(0xECECF1), dark: Color.hex(0x0A0A0D))
+    static let stroke = Color(light: Color.hex(0x000000, 0.10), dark: Color.hex(0xFFFFFF, 0.09))
+    static let strokeStrong = Color(light: Color.hex(0x000000, 0.20), dark: Color.hex(0xFFFFFF, 0.18))
+
+    // Text
+    static let text = Color(light: Color.hex(0x15151A), dark: Color.hex(0xF2F2F7))
+    static let textSecondary = Color(light: Color.hex(0x55555F), dark: Color.hex(0xA3A3B2))
+    static let textTertiary = Color(light: Color.hex(0x8A8A96), dark: Color.hex(0x6E6E7C))
+
+    // Accents
+    static let violet = Color(light: Color.hex(0x6B45F5), dark: Color.hex(0x8E6BFF))
+    static let blue = Color(light: Color.hex(0x2F6BFF), dark: Color.hex(0x5B8CFF))
+    static let accentGradient = LinearGradient(colors: [violet, blue], startPoint: .topLeading, endPoint: .bottomTrailing)
+    static let accentSoft = Color(light: Color.hex(0x6B45F5, 0.10), dark: Color.hex(0x8E6BFF, 0.16))
+
+    // Status
+    static let success = Color(light: Color.hex(0x1F9D55), dark: Color.hex(0x3DD68C))
+    static let warning = Color(light: Color.hex(0xB7791F), dark: Color.hex(0xF5B841))
+    static let danger = Color(light: Color.hex(0xD43A3A), dark: Color.hex(0xFF6B6B))
+    static let info = blue
+    static let neutral = textTertiary
+
+    enum Space { static let xs: CGFloat = 4, s: CGFloat = 8, m: CGFloat = 12, l: CGFloat = 16, xl: CGFloat = 24, xxl: CGFloat = 36 }
+    enum Radius { static let s: CGFloat = 6, m: CGFloat = 10, l: CGFloat = 14, xl: CGFloat = 20 }
+
+    enum Font {
+        static let display = SwiftUI.Font.system(size: 28, weight: .semibold, design: .rounded)
+        static let title = SwiftUI.Font.system(size: 20, weight: .semibold)
+        static let heading = SwiftUI.Font.system(size: 15, weight: .semibold)
+        static let body = SwiftUI.Font.system(size: 13)
+        static let bodyStrong = SwiftUI.Font.system(size: 13, weight: .medium)
+        static let caption = SwiftUI.Font.system(size: 11)
+        static let captionStrong = SwiftUI.Font.system(size: 11, weight: .semibold)
+        static let mono = SwiftUI.Font.system(size: 12, design: .monospaced)
+        static let monoSmall = SwiftUI.Font.system(size: 11, design: .monospaced)
+        static let metric = SwiftUI.Font.system(size: 26, weight: .semibold, design: .rounded).monospacedDigit()
+    }
+
+    /// Spring used for state changes; collapses to no animation under Reduce Motion.
+    static func spring(_ reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.82)
+    }
+}
+
+/// Presentation of a run status: colour, symbol and words. Never colour alone.
+struct StatusStyle {
+    let color: Color
+    let symbol: String
+    let label: LocalizedStringKey
+    let isActive: Bool
+
+    static func of(_ s: RunStatus) -> StatusStyle {
+        switch s {
+        case .queued: return .init(color: Theme.neutral, symbol: "clock", label: "Queued", isActive: false)
+        case .running: return .init(color: Theme.blue, symbol: "play.circle.fill", label: "Running", isActive: true)
+        case .paused: return .init(color: Theme.warning, symbol: "pause.circle.fill", label: "Paused", isActive: false)
+        case .recovering: return .init(color: Theme.warning, symbol: "arrow.triangle.2.circlepath", label: "Recovering", isActive: true)
+        case .waitingApproval: return .init(color: Theme.violet, symbol: "hand.raised.fill", label: "Waiting for approval", isActive: true)
+        case .succeeded: return .init(color: Theme.success, symbol: "checkmark.circle.fill", label: "Succeeded", isActive: false)
+        case .partiallySucceeded: return .init(color: Theme.warning, symbol: "checkmark.circle.trianglebadge.exclamationmark", label: "Partially succeeded", isActive: false)
+        case .failed: return .init(color: Theme.danger, symbol: "xmark.octagon.fill", label: "Failed", isActive: false)
+        case .canceled: return .init(color: Theme.neutral, symbol: "stop.circle.fill", label: "Canceled", isActive: false)
+        case .timedOut: return .init(color: Theme.danger, symbol: "clock.badge.exclamationmark", label: "Timed out", isActive: false)
+        case .blockedPermission: return .init(color: Theme.danger, symbol: "lock.trianglebadge.exclamationmark", label: "Blocked by a permission", isActive: false)
+        case .budgetExceeded: return .init(color: Theme.warning, symbol: "gauge.with.dots.needle.100percent", label: "Budget exceeded", isActive: false)
+        case .recoveryRequired: return .init(color: Theme.warning, symbol: "bandage.fill", label: "Needs recovery", isActive: false)
+        }
+    }
+
+    static func of(_ s: ToolStatus) -> StatusStyle {
+        switch s {
+        case .succeeded: return .init(color: Theme.success, symbol: "checkmark.circle.fill", label: "Succeeded", isActive: false)
+        case .simulated: return .init(color: Theme.info, symbol: "eye.circle.fill", label: "Simulated", isActive: false)
+        case .failed: return .init(color: Theme.danger, symbol: "xmark.octagon.fill", label: "Failed", isActive: false)
+        case .denied: return .init(color: Theme.danger, symbol: "nosign", label: "Denied by policy", isActive: false)
+        case .notApproved: return .init(color: Theme.warning, symbol: "hand.raised.slash.fill", label: "Not approved", isActive: false)
+        case .blockedPermission: return .init(color: Theme.danger, symbol: "lock.trianglebadge.exclamationmark", label: "macOS permission missing", isActive: false)
+        case .timedOut: return .init(color: Theme.danger, symbol: "clock.badge.exclamationmark", label: "Timed out", isActive: false)
+        case .canceled: return .init(color: Theme.neutral, symbol: "stop.circle.fill", label: "Canceled", isActive: false)
+        case .invalidInput: return .init(color: Theme.warning, symbol: "exclamationmark.triangle.fill", label: "Invalid arguments", isActive: false)
+        case .unsupported: return .init(color: Theme.neutral, symbol: "questionmark.circle.fill", label: "Unsupported", isActive: false)
+        }
+    }
+
+    static func tier(_ t: ApprovalTier) -> (Color, LocalizedStringKey, String) {
+        switch t {
+        case .readOnly: return (Theme.success, "Tier 0 · Read-only", "eye")
+        case .reversibleWrite: return (Theme.blue, "Tier 1 · Reversible", "pencil")
+        case .consequential: return (Theme.warning, "Tier 2 · Consequential", "exclamationmark.triangle")
+        case .highRisk: return (Theme.danger, "Tier 3 · High-risk", "flame")
+        }
+    }
+}

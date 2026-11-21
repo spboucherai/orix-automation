@@ -1,0 +1,117 @@
+# ORIX OS Automation
+# File: Workflows/Examples/09-website-change-monitor.yaml
+# Description: Built-in automation: fetches one approved web page on a schedule and notifies when its content changed.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - Only the host listed in permissions.network may be contacted; keep it in sync with the `url` parameter.
+# - One plain GET per run, no login, no JavaScript: pages rendered client-side or behind authentication are not supported.
+# - "Changed" is a byte comparison of the response body with the previous one: rotating ads, timestamps or tokens count as changes.
+# - Respect the site's terms and robots policy; the default interval is one hour on purpose.
+# - The page body is untrusted content: it is stored and compared, never interpreted.
+# - The GET is retried (retry.force) because repeating it has no side effect; argument names and output fields
+#   (status, body, identical) are to be reconciled with the real http and filesystem tools.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: website-change-monitor
+  name: Website change monitoring
+  description: >-
+    Fetches one web page from an approved host every hour, keeps the last copy in a state folder, compares
+    the new body with the previous one and posts a notification when it differs.
+  tags: [web, monitor, http, schedule]
+spec:
+  triggers:
+    - type: interval
+      seconds: 3600
+    - type: manual
+  parameters:
+    - name: url
+      type: string
+      default: https://example.com/
+      description: Page to watch. Its host must be listed in permissions.network.
+    - name: stateFolder
+      type: path
+      default: ~/ORIX Samples/website-change-monitor/State
+      description: Folder that keeps current.html and previous.html.
+  permissions:
+    filesystem:
+      read: ["${{ params.stateFolder }}"]
+      write: ["${{ params.stateFolder }}"]
+    network: [example.com]
+    notifications: true
+  budget:
+    maxDurationSeconds: 180
+    maxToolCalls: 20
+  steps:
+    - id: prepare
+      tool: filesystem.mkdir
+      with:
+        path: ${{ params.stateFolder }}
+    - id: fetch
+      name: Fetch the page
+      tool: http.request
+      with:
+        url: ${{ params.url }}
+        method: GET
+        timeoutSeconds: 30
+        maxBytes: 2000000
+      retry: {maxAttempts: 3, backoffSeconds: 5, backoffMultiplier: 2, force: true}
+    - id: saveCurrent
+      needs: [prepare, fetch]
+      tool: filesystem.write
+      with:
+        path: ${{ params.stateFolder }}/current.html
+        content: ${{ steps.fetch.output.body }}
+        overwrite: true
+    - id: existing
+      needs: [saveCurrent]
+      tool: filesystem.list
+      with:
+        path: ${{ params.stateFolder }}
+    - id: firstRun
+      name: Is there a previous copy?
+      needs: [existing]
+      if: ${{ count(steps.existing.output.entries, e => e.name == "previous.html") == 0 }}
+      then: [baseline]
+      else: [compare]
+    - id: baseline
+      name: First run, keep a baseline
+      tool: filesystem.copy
+      with:
+        source: ${{ params.stateFolder }}/current.html
+        destination: ${{ params.stateFolder }}/previous.html
+        overwrite: true
+    - id: compare
+      tool: filesystem.compare
+      with:
+        source: ${{ params.stateFolder }}/previous.html
+        destination: ${{ params.stateFolder }}/current.html
+    - id: changed
+      name: Did the page change?
+      needs: [compare]
+      if: ${{ !steps.compare.output.identical }}
+      then: [alert, promote]
+    - id: alert
+      notify: ${{ params.url }} changed since the last check.
+      title: Website change
+    - id: promote
+      name: The new copy becomes the reference
+      tool: filesystem.copy
+      with:
+        source: ${{ params.stateFolder }}/current.html
+        destination: ${{ params.stateFolder }}/previous.html
+        overwrite: true
+    - id: check
+      needs: [saveCurrent]
+      verify:
+        - equals: ["${{ steps.fetch.output.status }}", 200]
+        - fileNonEmpty: ${{ params.stateFolder }}/current.html
+    - id: result
+      needs: [check, firstRun]
+      output:
+        url: ${{ params.url }}
+        status: ${{ steps.fetch.output.status }}
+        firstRun: ${{ steps.firstRun.output.result }}

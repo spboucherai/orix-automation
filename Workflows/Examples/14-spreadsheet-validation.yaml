@@ -1,0 +1,109 @@
+# ORIX OS Automation
+# File: Workflows/Examples/14-spreadsheet-validation.yaml
+# Description: Built-in automation: checks a spreadsheet for required columns and empty rows and writes a validation report.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - Reads .xlsx files through documents.xlsxRead (first sheet unless `sheet` is set); formulas are read as their cached values.
+# - Checks implemented here: required columns present, no fully empty row, no empty cell in the key column. No type or range rules.
+# - The workbook is never modified. The report is written before the verification, so a failed validation still leaves
+#   a report explaining why; the run then ends FAILED on purpose (the verification is the validation).
+# - Output fields (header, rows) are to be reconciled with the real documents.xlsxRead tool.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: spreadsheet-validation
+  name: Automated spreadsheet validation
+  description: >-
+    Reads a spreadsheet, checks that the required columns exist, that no row is empty and that the key
+    column is always filled, writes a validation report, and fails the run when a rule is broken.
+  tags: [spreadsheet, validation, xlsx]
+spec:
+  triggers:
+    - type: manual
+    - type: fileChange
+      path: ${{ params.workbook }}
+      debounceSeconds: 10
+  parameters:
+    - name: workbook
+      type: path
+      default: ~/ORIX Samples/spreadsheet-validation/data.xlsx
+      description: Spreadsheet to validate.
+    - name: sheet
+      type: string
+      default: ""
+      description: Sheet name; empty means the first sheet.
+    - name: requiredColumns
+      type: array
+      default: [id, name, amount]
+      description: Column titles that must be present in the header row.
+    - name: keyColumn
+      type: integer
+      default: 0
+      description: Zero-based index of the column that must never be empty.
+    - name: reportFolder
+      type: path
+      default: ~/ORIX Samples/spreadsheet-validation/Reports
+      description: Folder that receives validation.md.
+  permissions:
+    filesystem:
+      read: ["${{ params.workbook }}", "${{ params.reportFolder }}"]
+      write: ["${{ params.reportFolder }}"]
+  budget:
+    maxDurationSeconds: 300
+    maxToolCalls: 10
+  steps:
+    - id: read
+      tool: documents.xlsxRead
+      with:
+        path: ${{ params.workbook }}
+        sheet: ${{ params.sheet }}
+        maxRows: 50000
+    - id: missingColumns
+      needs: [read]
+      transform: ${{ filter(params.requiredColumns, c => !contains(steps.read.output.header, c)) }}
+    - id: emptyRows
+      needs: [read]
+      transform: ${{ count(steps.read.output.rows, r => count(r, c => c != null && c != "") == 0) }}
+    - id: missingKeys
+      needs: [read]
+      transform: ${{ count(steps.read.output.rows, r => r[params.keyColumn] == null || r[params.keyColumn] == "") }}
+    - id: prepare
+      tool: filesystem.mkdir
+      with:
+        path: ${{ params.reportFolder }}
+    - id: report
+      name: Write the validation report
+      needs: [missingColumns, emptyRows, missingKeys, prepare]
+      tool: filesystem.write
+      with:
+        path: ${{ params.reportFolder }}/validation.md
+        overwrite: true
+        content: |
+          # Spreadsheet validation — ${{ env.DATETIME }}
+
+          Workbook: ${{ params.workbook }}
+          Rows read: ${{ len(steps.read.output.rows) }}
+
+          - Missing required columns: ${{ default(first(steps.missingColumns.output), "none") }} (${{ len(steps.missingColumns.output) }})
+          - Fully empty rows: ${{ steps.emptyRows.output }}
+          - Rows without a key value: ${{ steps.missingKeys.output }}
+    - id: check
+      name: The validation itself
+      needs: [report]
+      verify:
+        - fileNonEmpty: ${{ params.reportFolder }}/validation.md
+        - truthy: ${{ len(steps.read.output.rows) > 0 }}
+        - equals: ["${{ len(steps.missingColumns.output) }}", 0]
+        - equals: ["${{ steps.emptyRows.output }}", 0]
+        - equals: ["${{ steps.missingKeys.output }}", 0]
+    - id: result
+      needs: [check]
+      output:
+        valid: true
+        rows: ${{ len(steps.read.output.rows) }}
+        report: ${{ params.reportFolder }}/validation.md
+      artifacts:
+        - ${{ params.reportFolder }}/validation.md

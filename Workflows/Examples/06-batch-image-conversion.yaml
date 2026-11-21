@@ -1,0 +1,98 @@
+# ORIX OS Automation
+# File: Workflows/Examples/06-batch-image-conversion.yaml
+# Description: Built-in automation: converts the images of a folder to one format with sequential names.
+#
+# Author: Simon-Pierre Boucher
+# Contact: contact@spboucher.ai
+#
+# Limitations
+# - Originals are never modified or removed; converted copies go to the output folder.
+# - Names are <prefix>-<n>.<format> in listing order; numbers are not zero-padded (the expression language has no padding function).
+# - Existing files in the output folder are not overwritten: rerunning into a non-empty folder fails on the first collision.
+# - Supported input/output formats are those of the real documents.imageConvert tool (ImageIO); HEIC needs OS support.
+# - Argument names (format, quality) and output fields (entries[].name/path) are to be reconciled with the real tools.
+apiVersion: orix.ai/v1
+kind: Automation
+metadata:
+  id: batch-image-conversion
+  name: Batch image conversion and naming
+  description: >-
+    Converts every image of a folder to a chosen format and writes the copies to an output folder with
+    sequential names, four at a time, then checks that one converted file exists per source image.
+  tags: [images, convert, batch]
+spec:
+  triggers:
+    - type: manual
+  parameters:
+    - name: sourceFolder
+      type: path
+      default: ~/ORIX Samples/batch-image-conversion/Originals
+      description: Folder with the images to convert.
+    - name: outputFolder
+      type: path
+      default: ~/ORIX Samples/batch-image-conversion/Converted
+      description: Folder that receives the converted copies.
+    - name: format
+      type: string
+      default: jpeg
+      description: Target format (jpeg, png, tiff or heic).
+    - name: prefix
+      type: string
+      default: image
+      description: Prefix of the new file names.
+  permissions:
+    filesystem:
+      read: ["${{ params.sourceFolder }}", "${{ params.outputFolder }}"]
+      write: ["${{ params.outputFolder }}"]
+  budget:
+    maxDurationSeconds: 900
+    maxToolCalls: 2000
+  variables:
+    extensions: [.png, .jpg, .jpeg, .heic, .tiff, .tif, .gif, .bmp]
+  steps:
+    - id: list
+      tool: filesystem.list
+      with:
+        path: ${{ params.sourceFolder }}
+        recursive: false
+    - id: images
+      needs: [list]
+      transform: ${{ filter(steps.list.output.entries, e => contains(vars.extensions, lower(extname(e.name)))) }}
+    - id: prepare
+      tool: filesystem.mkdir
+      with:
+        path: ${{ params.outputFolder }}
+    - id: convert
+      name: Convert each image
+      needs: [images, prepare]
+      foreach: ${{ steps.images.output }}
+      as: image
+      concurrency: 4
+      collect: one
+      steps:
+        - id: one
+          tool: documents.imageConvert
+          with:
+            source: ${{ image.path }}
+            destination: ${{ params.outputFolder }}/${{ params.prefix }}-${{ index + 1 }}.${{ params.format }}
+            format: ${{ params.format }}
+            quality: 0.85
+            overwrite: false
+    - id: converted
+      needs: [convert]
+      tool: filesystem.list
+      with:
+        path: ${{ params.outputFolder }}
+        recursive: false
+    - id: check
+      needs: [converted]
+      verify:
+        - truthy: ${{ len(steps.images.output) > 0 }}
+        - equals: ["${{ steps.convert.output.count }}", "${{ len(steps.images.output) }}"]
+        - truthy: ${{ count(steps.converted.output.entries, e => startsWith(e.name, params.prefix + "-")) >= len(steps.images.output) }}
+        - dirNonEmpty: ${{ params.outputFolder }}
+    - id: result
+      needs: [check]
+      output:
+        converted: ${{ steps.convert.output.count }}
+        folder: ${{ params.outputFolder }}
